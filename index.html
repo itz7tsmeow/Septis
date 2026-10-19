@@ -1,0 +1,1967 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>POWDER GAME — Cellular Automata Physics Sandbox</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #090b10;
+      color: #e2e8f0;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    #simCanvas {
+      image-rendering: -moz-crisp-edges;
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: crisp-edges;
+      image-rendering: pixelated;
+      background-color: #000000;
+      touch-action: none;
+      cursor: crosshair;
+    }
+    .elem-btn {
+      transition: all 0.12s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+    }
+    .elem-btn:hover {
+      transform: translateY(-1px);
+      background-color: #1e2536;
+    }
+    .elem-btn.active-primary {
+      border-color: #38bdf8 !important;
+      background-color: rgba(56, 189, 248, 0.14);
+      box-shadow: 0 0 0 1px #38bdf8, 0 0 12px rgba(56, 189, 248, 0.25);
+    }
+    .elem-btn.active-secondary {
+      border-color: #f43f5e !important;
+      background-color: rgba(244, 63, 94, 0.14);
+      box-shadow: 0 0 0 1px #f43f5e, 0 0 10px rgba(244, 63, 94, 0.2);
+    }
+    /* Custom subtle scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f131c;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #283248;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-[#090b10] text-slate-100">
+
+  <!-- Top Header & Telemetry Bar -->
+  <header class="w-full border-b border-slate-800/90 bg-[#0d111a]/95 backdrop-blur sticky top-0 z-20 px-3 py-2">
+    <div class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-2">
+      <!-- Brand Title -->
+      <div class="flex items-center gap-2.5">
+        <div class="w-7 h-7 rounded-md bg-gradient-to-br from-amber-400 via-orange-500 to-rose-600 flex items-center justify-center shadow-md shadow-orange-500/20">
+          <span class="mono font-bold text-xs text-black">PG</span>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-bold text-sm sm:text-base tracking-tight text-white">POWDER GAME</h1>
+            <span class="text-[10px] mono uppercase px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 font-semibold">DAN-BALL Replica</span>
+          </div>
+          <p class="text-[11px] text-slate-400 hidden sm:block">2D Cellular Automata Falling-Sand &amp; Chemistry Engine</p>
+        </div>
+      </div>
+
+      <!-- Real-Time Telemetry Counters -->
+      <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+        <div class="flex items-center gap-3 bg-slate-900/90 border border-slate-800 rounded-lg px-2.5 py-1 text-xs mono">
+          <div class="flex items-center gap-1.5" title="Frames Per Second">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" id="fpsDot"></span>
+            <span class="text-slate-400">FPS:</span>
+            <span id="fpsCounter" class="font-bold text-emerald-400">60</span>
+          </div>
+          <span class="text-slate-700">|</span>
+          <div class="flex items-center gap-1" title="Active Particles on Grid">
+            <span class="text-slate-400">DOTS:</span>
+            <span id="particleCounter" class="font-bold text-sky-400">0</span>
+          </div>
+          <span class="text-slate-700 hidden md:inline">|</span>
+          <div class="hidden md:flex items-center gap-1" title="Cursor Grid Coordinates">
+            <span class="text-slate-400">XY:</span>
+            <span id="coordDisplay" class="text-slate-300">---, ---</span>
+          </div>
+        </div>
+
+        <!-- Quick Utility Buttons -->
+        <div class="flex items-center gap-1.5">
+          <button id="soundToggleBtn" type="button" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1" title="Toggle Synthesized Audio Effects">
+            <span id="soundIcon">🔊</span>
+            <span class="hidden sm:inline" id="soundLabel">SFX On</span>
+          </button>
+          <button id="helpModalBtn" type="button" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700 transition" title="Chemistry &amp; Reaction Guide">
+            ⚗️ Guide
+          </button>
+          <button id="downloadHtmlBtn" type="button" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold bg-sky-500/20 hover:bg-sky-500/30 text-sky-300 border border-sky-500/40 transition flex items-center gap-1" title="Download Standalone HTML Game File">
+            ⬇ Save .HTML
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <main class="flex-1 max-w-6xl w-full mx-auto px-2 sm:px-4 py-3 flex flex-col gap-3">
+
+    <!-- Top Simulation Control Bar -->
+    <section class="bg-[#111622] border border-slate-800/90 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2 shadow-lg">
+      <!-- Playback & Screen Controls -->
+      <div class="flex items-center gap-1.5 flex-wrap">
+        <button id="playPauseBtn" type="button" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 transition flex items-center gap-1.5">
+          <span id="playPauseIcon">⏸</span>
+          <span id="playPauseText">Pause</span>
+        </button>
+        <button id="stepFrameBtn" type="button" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition" title="Advance exactly 1 physics frame (Pauses game)">
+          ⏭ Step
+        </button>
+        <button id="clearCanvasBtn" type="button" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 transition flex items-center gap-1">
+          🗑 Clear Screen
+        </button>
+        <div class="h-4 w-[1px] bg-slate-800 mx-0.5 hidden sm:block"></div>
+        <!-- Preset Demos -->
+        <div class="flex items-center gap-1">
+          <label for="presetSelect" class="text-[11px] text-slate-400 font-medium hidden sm:inline">Demo Scene:</label>
+          <select id="presetSelect" class="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-sky-500">
+            <option value="">-- Load Sandbox Preset --</option>
+            <option value="volcano">🌋 Magma Volcano &amp; Lake</option>
+            <option value="bunker">💣 C4 &amp; Gunpowder Demolition</option>
+            <option value="ecosystem">🌱 Seed, Water &amp; Forest Fire</option>
+            <option value="factory">🧬 Clone &amp; Acid Chambers</option>
+            <option value="blizzard">❄️ Ice Cavern &amp; Snowstorm</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Brush / Pen Size & Wind Controls -->
+      <div class="flex items-center gap-3 flex-wrap">
+        <!-- Brush Size Controls -->
+        <div class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-800 rounded-lg px-2 py-1">
+          <span class="text-[11px] text-slate-400 font-medium">Pen Size:</span>
+          <button id="brushDecBtn" type="button" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center border border-slate-700" title="Decrease Brush Size ([)">−</button>
+          <input id="brushSizeSlider" type="range" min="1" max="20" value="4" class="w-20 sm:w-24 accent-sky-400 cursor-pointer h-1.5 bg-slate-700 rounded-lg" />
+          <button id="brushIncBtn" type="button" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center border border-slate-700" title="Increase Brush Size (])">+</button>
+          <span id="brushSizeVal" class="mono text-xs font-bold text-sky-400 w-5 text-center">4</span>
+        </div>
+
+        <!-- Brush Shape Toggle -->
+        <div class="flex items-center gap-1 bg-slate-900/90 border border-slate-800 rounded-lg p-1">
+          <button id="shapeCircleBtn" type="button" class="px-2 py-0.5 rounded text-[11px] font-medium bg-sky-500/25 text-sky-300 border border-sky-500/40" title="Circular Brush">● Circle</button>
+          <button id="shapeSquareBtn" type="button" class="px-2 py-0.5 rounded text-[11px] font-medium text-slate-400 hover:text-slate-200 border border-transparent" title="Square Block Brush">■ Square</button>
+          <button id="shapeSprayBtn" type="button" class="px-2 py-0.5 rounded text-[11px] font-medium text-slate-400 hover:text-slate-200 border border-transparent" title="Randomized Spray Brush">∴ Spray</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Center Canvas Viewport -->
+    <section class="relative flex flex-col items-center justify-center bg-[#06080c] border-2 border-slate-800 rounded-xl overflow-hidden shadow-2xl">
+      <!-- Top Overlay Status Strip -->
+      <div class="w-full bg-[#0c1018] border-b border-slate-800/80 px-3 py-1.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div class="flex items-center gap-3 flex-wrap">
+          <div class="flex items-center gap-1.5">
+            <span class="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 font-semibold">Left Click</span>
+            <span id="primaryElemBadge" class="w-3 h-3 rounded-sm inline-block border border-white/20" style="background:#e6c365;"></span>
+            <span id="primaryElemName" class="font-bold text-white">Powder (Sand)</span>
+            <span id="primaryElemState" class="text-[11px] text-slate-400 mono">[Solid / Powder]</span>
+          </div>
+          <span class="text-slate-700 hidden sm:inline">•</span>
+          <div class="hidden sm:flex items-center gap-1.5">
+            <span class="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 font-semibold">Right Click</span>
+            <span id="secondaryElemBadge" class="w-3 h-3 rounded-sm inline-block border border-white/20" style="background:#000000;"></span>
+            <span id="secondaryElemName" class="font-semibold text-slate-300">Empty (Eraser)</span>
+          </div>
+        </div>
+        <div id="elemDescText" class="text-[11px] text-slate-400 truncate max-w-xl">
+          Classic falling sand. Sinks in water, piles up diagonally, and can be blown by wind or explosions.
+        </div>
+      </div>
+
+      <!-- Canvas Wrapper -->
+      <div id="canvasContainer" class="w-full flex items-center justify-center bg-black p-1 sm:p-2 relative">
+        <canvas id="simCanvas" width="380" height="240" class="w-full max-w-[912px] aspect-[19/12] border border-slate-800/90 shadow-inner rounded"></canvas>
+      </div>
+    </section>
+
+    <!-- Element Palette Grid (All 17 Required Classic Elements) -->
+    <section class="bg-[#111622] border border-slate-800/90 rounded-xl p-3 shadow-lg">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-2">
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-300">Element Palette (17 Materials)</h2>
+          <span class="text-[11px] text-slate-400 hidden sm:inline">— Left-click to select primary tool • Right-click any button (or on canvas) for secondary tool</span>
+        </div>
+        <!-- Border Mode Toggle -->
+        <div class="flex items-center gap-2">
+          <label class="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer">
+            <input type="checkbox" id="containWallsToggle" checked class="accent-sky-400 rounded cursor-pointer" />
+            <span>Closed Floor &amp; Walls</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Buttons injected & bound via JS -->
+      <div id="paletteGrid" class="grid grid-cols-3 sm:grid-cols-6 md:grid-cols-9 gap-1.5"></div>
+    </section>
+
+    <!-- Physics & Chemistry Reference Footer -->
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-2.5 text-xs">
+      <div class="bg-[#111622]/90 border border-slate-800/80 rounded-xl p-3">
+        <h3 class="font-semibold text-amber-300 mb-1 flex items-center gap-1.5">🔥 Thermal &amp; Volcanic Reactions</h3>
+        <p class="text-slate-400 leading-relaxed">
+          <strong class="text-slate-200">Water + Magma</strong> crystallizes into solid <strong class="text-slate-200">Wall/Stone</strong> and releases rising <strong class="text-slate-200">Steam</strong>. <strong class="text-slate-200">Fire</strong> and <strong class="text-slate-200">Magma</strong> rapidly melt <strong class="text-slate-200">Ice</strong> and <strong class="text-slate-200">Snow</strong> into liquid Water, and ignite Wood, Plant, Seed, Powder, Gunpowder, and C4.
+        </p>
+      </div>
+      <div class="bg-[#111622]/90 border border-slate-800/80 rounded-xl p-3">
+        <h3 class="font-semibold text-emerald-300 mb-1 flex items-center gap-1.5">🌱 Botany, Acid &amp; Contagion</h3>
+        <p class="text-slate-400 leading-relaxed">
+          <strong class="text-slate-200">Seed + Water</strong> germinates and grows branching <strong class="text-slate-200">Plant/Wood</strong> structures upward. <strong class="text-slate-200">Acid</strong> dissolves almost any material on contact except Wall and Clone while expending its potency. <strong class="text-slate-200">Virus</strong> creeps across adjacent materials, converting them into Purple Virus.
+        </p>
+      </div>
+      <div class="bg-[#111622]/90 border border-slate-800/80 rounded-xl p-3">
+        <h3 class="font-semibold text-fuchsia-300 mb-1 flex items-center gap-1.5">💥 Detonations, Clone &amp; Wind</h3>
+        <p class="text-slate-400 leading-relaxed">
+          <strong class="text-slate-200">Gunpowder</strong> &amp; <strong class="text-slate-200">C4</strong> detonate with radial shockwaves, hurling nearby particles with X/Y velocity. <strong class="text-slate-200">Clone</strong> latches onto the first element that touches it and infinitely manufactures more. <strong class="text-slate-200">Wind</strong> imparts directional aerodynamic impulse across the grid.
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Chemistry & Controls Modal -->
+  <div id="helpModal" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-[#121826] border border-slate-700 rounded-2xl max-w-2xl w-full p-5 shadow-2xl max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
+        <div>
+          <h2 class="text-base font-bold text-white">Powder Game — Physics &amp; Chemistry Manual</h2>
+          <p class="text-xs text-slate-400">Complete Cellular Automata Ruleset &amp; Controls</p>
+        </div>
+        <button id="closeHelpModalBtn" type="button" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center font-bold">✕</button>
+      </div>
+      <div class="overflow-y-auto space-y-3 text-xs text-slate-300 pr-1 leading-relaxed">
+        <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-3">
+          <h3 class="font-bold text-sky-400 mb-1">Controls &amp; Shortcuts</h3>
+          <ul class="list-disc list-inside space-y-1 text-slate-300">
+            <li><strong>Left-Click + Drag:</strong> Paint with Primary Selected Element.</li>
+            <li><strong>Right-Click + Drag:</strong> Paint with Secondary Element (defaults to Empty/Eraser; right-click any palette button to reassign).</li>
+            <li><strong>Mouse Wheel or <code class="mono text-sky-300">[</code> / <code class="mono text-sky-300">]</code>:</strong> Adjust brush radius (1px to 20px).</li>
+            <li><strong>Spacebar:</strong> Pause / Resume simulation.</li>
+            <li><strong><code class="mono text-sky-300">S</code> Key:</strong> Step forward 1 single frame while paused.</li>
+            <li><strong><code class="mono text-sky-300">C</code> Key:</strong> Clear entire canvas.</li>
+          </ul>
+        </div>
+        <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-3">
+          <h3 class="font-bold text-amber-400 mb-1">Key Element Interactions</h3>
+          <ul class="list-disc list-inside space-y-1 text-slate-300">
+            <li><strong>Water + Magma:</strong> Magma cools into indestructible Stone/Wall while Water flashes into rising Steam.</li>
+            <li><strong>Seed + Water:</strong> Seeds drink adjacent Water and sprout organic branching Wood/Plant trees upward.</li>
+            <li><strong>Fire + Plant / Wood / Powder:</strong> Ignites and consumes fuel, generating flickering flames and rising smoke/steam.</li>
+            <li><strong>Fire / Magma + Gunpowder / C4:</strong> Triggers violent exothermic explosions with radial velocity shockwaves (C4 has a massive blast radius).</li>
+            <li><strong>Acid + Solids/Liquids:</strong> Dissolves materials on contact into empty space or gas wisps while reducing the Acid droplet's remaining potency; cannot dissolve Wall or Clone.</li>
+            <li><strong>Clone:</strong> Remembers the first element that touches it and continuously outputs that element into adjacent open pixels.</li>
+            <li><strong>Virus:</strong> Infects adjacent particles (except Wall and Clone) and transforms them into creeping Purple Virus; can be burned by Fire or dissolved by Acid.</li>
+            <li><strong>Wind:</strong> Sweeps across the grid and transfers directional X/Y momentum to surrounding particles based on your mouse drag direction.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="mt-4 pt-3 border-t border-slate-800 flex justify-end">
+        <button id="closeHelpBottomBtn" type="button" class="px-4 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold text-xs">Got It</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * ============================================================================
+     * POWDER GAME (DAN-BALL REPLICA) — CELLULAR AUTOMATA PHYSICS ENGINE
+     * ============================================================================
+     * Architecture & Performance Optimization:
+     * - Uses flat 1D TypedArrays of size (WIDTH * HEIGHT) indexed via `idx = y * WIDTH + x`.
+     * - Renders directly to a 32-bit `Uint32Array` view over `ImageData.data.buffer`
+     *   so every frame is drawn in a single hardware-accelerated `putImageData` call.
+     * - Alternates horizontal scan order (left-to-right vs right-to-left) every row/frame
+     *   to eliminate directional bias in falling sand piles and liquid dispersion.
+     * - Supports per-particle 2D velocity (vx, vy) for Wind gusts and Explosion shockwaves.
+     */
+
+    // --- 1. Grid Dimensions & Constants ---
+    const WIDTH = 380;
+    const HEIGHT = 240;
+    const SIZE = WIDTH * HEIGHT;
+
+    // Matter States
+    const STATE_EMPTY   = 0;
+    const STATE_SOLID   = 1; // Immovable solid (Wall, Plant/Wood, Ice, C4, Clone, Virus)
+    const STATE_POWDER  = 2; // Falling granular solid (Powder/Sand, Gunpowder, Seed, Snow)
+    const STATE_LIQUID  = 3; // Flowing liquid (Water, Magma, Acid)
+    const STATE_GAS     = 4; // Rising gas (Gas/Steam)
+    const STATE_ENERGY  = 5; // Energy / Flame (Fire)
+    const STATE_SPECIAL = 6; // Aerodynamic / Force (Wind)
+
+    // Element Type IDs (All 17 Required Materials)
+    const EL_EMPTY     = 0;
+    const EL_WALL      = 1;
+    const EL_POWDER    = 2;
+    const EL_WATER     = 3;
+    const EL_FIRE      = 4;
+    const EL_MAGMA     = 5;
+    const EL_GUNPOWDER = 6;
+    const EL_SEED      = 7;
+    const EL_PLANT     = 8;
+    const EL_ICE       = 9;
+    const EL_SNOW      = 10;
+    const EL_ACID      = 11;
+    const EL_STEAM     = 12;
+    const EL_C4        = 13;
+    const EL_CLONE     = 14;
+    const EL_VIRUS     = 15;
+    const EL_WIND      = 16;
+
+    // Element Metadata Catalog
+    const ELEMENTS = [
+      {
+        id: EL_EMPTY,
+        name: 'Empty (Eraser)',
+        short: 'Eraser',
+        color: '#000000',
+        rgb: [0, 0, 0],
+        state: STATE_EMPTY,
+        stateLabel: 'Eraser',
+        density: 0,
+        flammable: 0,
+        corrodible: false,
+        desc: 'Black eraser tool. Clears any particle, including indestructible Wall and Clone blocks.'
+      },
+      {
+        id: EL_WALL,
+        name: 'Wall / Block',
+        short: 'Wall',
+        color: '#808594',
+        rgb: [128, 133, 148],
+        state: STATE_SOLID,
+        stateLabel: 'Solid (Indestructible)',
+        density: 100,
+        flammable: 0,
+        corrodible: false,
+        desc: 'Indestructible, immovable gray block. Immune to fire, acid, virus, and explosions.'
+      },
+      {
+        id: EL_POWDER,
+        name: 'Powder (Sand)',
+        short: 'Powder',
+        color: '#e8c468',
+        rgb: [232, 196, 104],
+        state: STATE_POWDER,
+        stateLabel: 'Falling Solid',
+        density: 25,
+        flammable: 0.08,
+        corrodible: true,
+        desc: 'Classic tan powder. Falls with gravity, piles diagonally, sinks in water, and smolders under intense fire.'
+      },
+      {
+        id: EL_WATER,
+        name: 'Water',
+        short: 'Water',
+        color: '#2b7fff',
+        rgb: [43, 127, 255],
+        state: STATE_LIQUID,
+        stateLabel: 'Liquid',
+        density: 10,
+        flammable: 0,
+        corrodible: true,
+        desc: 'Flows horizontally, extinguishes fire, turns to Steam when heated, and turns Magma into Stone.'
+      },
+      {
+        id: EL_FIRE,
+        name: 'Fire',
+        short: 'Fire',
+        color: '#ff4d00',
+        rgb: [255, 77, 0],
+        state: STATE_ENERGY,
+        stateLabel: 'Energy / Gas',
+        density: -5,
+        flammable: 0,
+        corrodible: false,
+        desc: 'Rises, flickers, and dies out over time. Ignites flammable materials, melts Ice/Snow, and boils Water.'
+      },
+      {
+        id: EL_MAGMA,
+        name: 'Magma (Lava)',
+        short: 'Magma',
+        color: '#ff3300',
+        rgb: [255, 51, 0],
+        state: STATE_LIQUID,
+        stateLabel: 'Viscous Liquid',
+        density: 30,
+        flammable: 0,
+        corrodible: true,
+        desc: 'Molten rock. Ignites flammables on contact and reacts with Water to form Stone (Wall) and Steam.'
+      },
+      {
+        id: EL_GUNPOWDER,
+        name: 'Gunpowder',
+        short: 'Gunpowder',
+        color: '#52525b',
+        rgb: [82, 82, 91],
+        state: STATE_POWDER,
+        stateLabel: 'Explosive Powder',
+        density: 22,
+        flammable: 0.95,
+        corrodible: true,
+        desc: 'Dark gray granular powder. Detonates violently when touched by Fire or Magma, blasting nearby pixels.'
+      },
+      {
+        id: EL_SEED,
+        name: 'Seed',
+        short: 'Seed',
+        color: '#74e344',
+        rgb: [116, 227, 68],
+        state: STATE_POWDER,
+        stateLabel: 'Botanical Powder',
+        density: 18,
+        flammable: 0.45,
+        corrodible: true,
+        desc: 'Green falling seed. When it touches Water, it germinates and grows upward into branching Plant/Wood.'
+      },
+      {
+        id: EL_PLANT,
+        name: 'Plant / Wood',
+        short: 'Plant/Wood',
+        color: '#2e8538',
+        rgb: [46, 133, 56],
+        state: STATE_SOLID,
+        stateLabel: 'Flammable Solid',
+        density: 50,
+        flammable: 0.55,
+        corrodible: true,
+        desc: 'Immovable organic structure. Highly flammable—burns fiercely into Fire and wisps of Steam/Smoke.'
+      },
+      {
+        id: EL_ICE,
+        name: 'Ice',
+        short: 'Ice',
+        color: '#88ddff',
+        rgb: [136, 221, 255],
+        state: STATE_SOLID,
+        stateLabel: 'Cryo Solid',
+        density: 50,
+        flammable: 0,
+        corrodible: true,
+        desc: 'Crystalline immovable solid. Melts into Water when exposed to Fire, Magma, or hot Steam.'
+      },
+      {
+        id: EL_SNOW,
+        name: 'Snow',
+        short: 'Snow',
+        color: '#f1f5f9',
+        rgb: [241, 245, 249],
+        state: STATE_POWDER,
+        stateLabel: 'Cryo Powder',
+        density: 8,
+        flammable: 0,
+        corrodible: true,
+        desc: 'Light white flakes that drift gently downward and melt into Water near heat sources.'
+      },
+      {
+        id: EL_ACID,
+        name: 'Acid',
+        short: 'Acid',
+        color: '#39ff14',
+        rgb: [57, 255, 20],
+        state: STATE_LIQUID,
+        stateLabel: 'Corrosive Liquid',
+        density: 12,
+        flammable: 0,
+        corrodible: false,
+        desc: 'Bright green corrosive fluid. Dissolves almost any solid or liquid except Wall and Clone.'
+      },
+      {
+        id: EL_STEAM,
+        name: 'Gas / Steam',
+        short: 'Gas/Steam',
+        color: '#cbd5e1',
+        rgb: [203, 213, 225],
+        state: STATE_GAS,
+        stateLabel: 'Rising Gas',
+        density: -4,
+        flammable: 0,
+        corrodible: false,
+        desc: 'Light gray vapor. Rises toward the top of the screen, disperses horizontally, and gradually dissipates.'
+      },
+      {
+        id: EL_C4,
+        name: 'C4 (Explosive)',
+        short: 'C4',
+        color: '#1b6b45',
+        rgb: [27, 107, 69],
+        state: STATE_SOLID,
+        stateLabel: 'High Explosive Solid',
+        density: 60,
+        flammable: 0.99,
+        corrodible: true,
+        desc: 'Stable immovable plastic explosive. Creates a massive high-velocity blast wave when triggered by Fire or Magma.'
+      },
+      {
+        id: EL_CLONE,
+        name: 'Clone',
+        short: 'Clone',
+        color: '#e024c6',
+        rgb: [224, 36, 198],
+        state: STATE_SOLID,
+        stateLabel: 'Special Solid',
+        density: 95,
+        flammable: 0,
+        corrodible: false,
+        desc: 'Magenta replicator block. Latches onto the first particle that touches it and endlessly spawns copies.'
+      },
+      {
+        id: EL_VIRUS,
+        name: 'Virus',
+        short: 'Virus',
+        color: '#9b30ff',
+        rgb: [155, 48, 255],
+        state: STATE_SOLID,
+        stateLabel: 'Creeping Contagion',
+        density: 45,
+        flammable: 0.35,
+        corrodible: true,
+        desc: 'Purple contagion. Slowly infects and converts adjacent non-wall particles into more Virus.'
+      },
+      {
+        id: EL_WIND,
+        name: 'Wind',
+        short: 'Wind',
+        color: '#e2e8f0',
+        rgb: [226, 232, 240],
+        state: STATE_SPECIAL,
+        stateLabel: 'Kinetic Force',
+        density: -1,
+        flammable: 0,
+        corrodible: false,
+        desc: 'Faint white air current. Applies directional velocity to all movable particles it passes through.'
+      }
+    ];
+
+    // --- 2. 1D TypedArray Cellular Automata Buffers ---
+    const gridType  = new Uint8Array(SIZE);   // Element ID per pixel
+    const gridLife  = new Int16Array(SIZE);   // Lifespan / Temperature / Cloned-ID / Acid potency
+    const gridShade = new Int8Array(SIZE);    // Per-particle color variation (-15..+15) for rich visual texture
+    const gridVx    = new Float32Array(SIZE); // Horizontal velocity
+    const gridVy    = new Float32Array(SIZE); // Vertical velocity
+    const gridStamp = new Uint8Array(SIZE);   // Frame parity stamp so particles update once per tick
+
+    // --- 3. Canvas & Fast 32-Bit Pixel Buffer Setup ---
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    const imgData = ctx.createImageData(WIDTH, HEIGHT);
+    const buf32 = new Uint32Array(imgData.data.buffer);
+
+    // Helper: pack R, G, B into 32-bit ABGR integer (little-endian x86/ARM)
+    function packRGB(r, g, b) {
+      const cr = r < 0 ? 0 : (r > 255 ? 255 : r | 0);
+      const cg = g < 0 ? 0 : (g > 255 ? 255 : g | 0);
+      const cb = b < 0 ? 0 : (b > 255 ? 255 : b | 0);
+      return (255 << 24) | (cb << 16) | (cg << 8) | cr;
+    }
+
+    // Fire color lookup gradient (indexed by remaining life 0..64)
+    const FIRE_PALETTE = new Uint32Array(65);
+    for (let i = 0; i <= 64; i++) {
+      const t = i / 64; // 1.0 = fresh white-yellow hot, 0.0 = dying dark red ember
+      const r = Math.min(255, Math.floor(170 + t * 85));
+      const g = Math.min(255, Math.floor(t * t * 235));
+      const b = Math.min(255, Math.floor(Math.pow(t, 4) * 160));
+      FIRE_PALETTE[i] = packRGB(r, g, b);
+    }
+
+    // --- 4. Simulation & UI State ---
+    let isRunning = true;
+    let frameParity = 1;
+    let tickCount = 0;
+    let primaryElement = EL_POWDER;
+    let secondaryElement = EL_EMPTY;
+    let brushRadius = 4;
+    let brushShape = 'circle'; // 'circle' | 'square' | 'spray'
+    let containWalls = true;
+
+    // Pointer tracking
+    let isPointerDown = false;
+    let activeMouseButton = 0; // 0 = left, 2 = right
+    let mouseGridX = -1;
+    let mouseGridY = -1;
+    let prevMouseGridX = -1;
+    let prevMouseGridY = -1;
+    let dragVelX = 0;
+    let dragVelY = 0;
+
+    // FPS tracking
+    let lastFpsTime = performance.now();
+    let framesThisSecond = 0;
+    let currentFps = 60;
+    let activeParticleCount = 0;
+
+    // --- 5. Synthesized Web Audio API Sound Effects ---
+    let audioCtx = null;
+    let soundEnabled = true;
+    let lastSoundTime = 0;
+
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          audioCtx = new AudioContextClass();
+        }
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playSynthSfx(kind) {
+      if (!soundEnabled || !audioCtx) return;
+      const now = performance.now();
+      if (kind !== 'explosion' && now - lastSoundTime < 55) return;
+      lastSoundTime = now;
+
+      try {
+        const t0 = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (kind === 'explosion') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(110, t0);
+          osc.frequency.exponentialRampToValueAtTime(22, t0 + 0.32);
+          gain.gain.setValueAtTime(0.16, t0);
+          gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.34);
+          osc.start(t0);
+          osc.stop(t0 + 0.35);
+        } else if (kind === 'sizzle') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(520 + Math.random() * 280, t0);
+          osc.frequency.exponentialRampToValueAtTime(180, t0 + 0.08);
+          gain.gain.setValueAtTime(0.035, t0);
+          gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.085);
+          osc.start(t0);
+          osc.stop(t0 + 0.09);
+        } else if (kind === 'draw') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(220 + (primaryElement * 28) + Math.random() * 40, t0);
+          gain.gain.setValueAtTime(0.02, t0);
+          gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.04);
+          osc.start(t0);
+          osc.stop(t0 + 0.045);
+        }
+      } catch (e) {
+        // Ignore audio context restrictions
+      }
+    }
+
+    // --- 6. Core Grid Helper Functions ---
+    function inBounds(x, y) {
+      if (containWalls) {
+        return x >= 1 && x < WIDTH - 1 && y >= 1 && y < HEIGHT - 1;
+      }
+      return x >= 0 && x < WIDTH && y >= 0 && y < HEIGHT;
+    }
+
+    function setCell(idx, type, customLife) {
+      gridType[idx] = type;
+      gridVx[idx] = 0;
+      gridVy[idx] = 0;
+      gridStamp[idx] = frameParity;
+      gridShade[idx] = ((Math.random() * 22) | 0) - 11;
+
+      if (customLife !== undefined) {
+        gridLife[idx] = customLife;
+        return;
+      }
+
+      switch (type) {
+        case EL_FIRE:
+          gridLife[idx] = 28 + ((Math.random() * 36) | 0);
+          break;
+        case EL_STEAM:
+          gridLife[idx] = 110 + ((Math.random() * 130) | 0);
+          break;
+        case EL_ACID:
+          gridLife[idx] = 4; // Can dissolve up to 4 pixels before neutralizing
+          break;
+        case EL_SEED:
+          gridLife[idx] = 0; // 0 = dormant seed, >0 = actively growing stem energy
+          break;
+        case EL_CLONE:
+          gridLife[idx] = 0; // 0 = unprogrammed, >0 = element ID to replicate
+          break;
+        case EL_WIND:
+          gridLife[idx] = 18 + ((Math.random() * 16) | 0);
+          break;
+        case EL_PLANT:
+          // Slight wood/leaf tone variation encoded in gridLife (0 = leaf green, 1 = wood brown)
+          gridLife[idx] = Math.random() < 0.22 ? 1 : 0;
+          break;
+        default:
+          gridLife[idx] = 0;
+          break;
+      }
+    }
+
+    function clearCell(idx) {
+      gridType[idx] = EL_EMPTY;
+      gridLife[idx] = 0;
+      gridShade[idx] = 0;
+      gridVx[idx] = 0;
+      gridVy[idx] = 0;
+    }
+
+    function swapCells(i1, i2) {
+      const tType = gridType[i1];
+      const tLife = gridLife[i1];
+      const tShade = gridShade[i1];
+      const tVx = gridVx[i1];
+      const tVy = gridVy[i1];
+
+      gridType[i1] = gridType[i2];
+      gridLife[i1] = gridLife[i2];
+      gridShade[i1] = gridShade[i2];
+      gridVx[i1] = gridVx[i2];
+      gridVy[i1] = gridVy[i2];
+
+      gridType[i2] = tType;
+      gridLife[i2] = tLife;
+      gridShade[i2] = tShade;
+      gridVx[i2] = tVx;
+      gridVy[i2] = tVy;
+
+      gridStamp[i1] = frameParity;
+      gridStamp[i2] = frameParity;
+    }
+
+    function canDisplace(moverIdx, targetIdx) {
+      const targetType = gridType[targetIdx];
+      if (targetType === EL_EMPTY) return true;
+      const moverType = gridType[moverIdx];
+      if (moverType === targetType) return false;
+
+      const targetState = ELEMENTS[targetType].state;
+      if (targetState === STATE_SOLID) return false;
+
+      const moverDensity = ELEMENTS[moverType].density;
+      const targetDensity = ELEMENTS[targetType].density;
+
+      // Heavier powders/liquids sink through lighter liquids/gases
+      if (moverDensity > targetDensity && (targetState === STATE_LIQUID || targetState === STATE_GAS || targetState === STATE_ENERGY)) {
+        return Math.random() < 0.45;
+      }
+      return false;
+    }
+
+    // --- 7. Explosion Generator (Gunpowder & C4) ---
+    function triggerExplosion(cx, cy, radius, power) {
+      playSynthSfx('explosion');
+      const r2 = radius * radius;
+      const outerR = radius + 6;
+      const outerR2 = outerR * outerR;
+
+      const minY = Math.max(1, cy - outerR);
+      const maxY = Math.min(HEIGHT - 2, cy + outerR);
+      const minX = Math.max(1, cx - outerR);
+      const maxX = Math.min(WIDTH - 2, cx + outerR);
+
+      for (let y = minY; y <= maxY; y++) {
+        const dy = y - cy;
+        const rowOffset = y * WIDTH;
+        for (let x = minX; x <= maxX; x++) {
+          const dx = x - cx;
+          const d2 = dx * dx + dy * dy;
+          if (d2 > outerR2) continue;
+
+          const idx = rowOffset + x;
+          const t = gridType[idx];
+
+          // Indestructible walls & clones survive blasts
+          if (t === EL_WALL || t === EL_CLONE) continue;
+
+          const dist = Math.sqrt(d2) || 1;
+          const nx = dx / dist;
+          const ny = dy / dist;
+
+          if (d2 <= r2) {
+            // Chain-detonate adjacent C4 or Gunpowder
+            if ((t === EL_C4 || t === EL_GUNPOWDER) && (dx !== 0 || dy !== 0) && Math.random() < 0.35) {
+              setCell(idx, EL_FIRE, 60);
+              gridVx[idx] = nx * power * 0.9;
+              gridVy[idx] = ny * power * 0.9;
+              continue;
+            }
+
+            // Inner fireball core turns into Fire, Steam, or flying sparks
+            const roll = Math.random();
+            if (roll < 0.58) {
+              setCell(idx, EL_FIRE, 35 + ((Math.random() * 28) | 0));
+              gridVx[idx] = nx * (power * (0.4 + Math.random() * 0.6));
+              gridVy[idx] = ny * (power * (0.4 + Math.random() * 0.6));
+            } else if (roll < 0.75) {
+              setCell(idx, EL_STEAM, 90 + ((Math.random() * 80) | 0));
+              gridVx[idx] = nx * power * 0.5;
+              gridVy[idx] = ny * power * 0.5;
+            } else {
+              clearCell(idx);
+            }
+          } else {
+            // Shockwave outer ring: impart strong radial velocity to existing particles
+            if (t !== EL_EMPTY && ELEMENTS[t].state !== STATE_SOLID) {
+              const falloff = 1 - (dist - radius) / 6;
+              gridVx[idx] += nx * power * falloff * 1.1;
+              gridVy[idx] += (ny * power * falloff * 1.1) - 0.8;
+            } else if (t === EL_PLANT || t === EL_ICE) {
+              // Shatter fragile solids at blast edge
+              if (Math.random() < 0.4) {
+                setCell(idx, t === EL_PLANT ? EL_FIRE : EL_WATER);
+                gridVx[idx] = nx * power * 0.6;
+                gridVy[idx] = ny * power * 0.6;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // --- 8. Main Cellular Automata Physics & Chemistry Update Loop ---
+    const NEIGHBOR_DIRS = [
+      [-1, -1], [0, -1], [1, -1],
+      [-1,  0],          [1,  0],
+      [-1,  1], [0,  1], [1,  1]
+    ];
+
+    function stepPhysics() {
+      frameParity = (frameParity + 1) & 255;
+      if (frameParity === 0) frameParity = 1;
+      tickCount++;
+
+      // Iterate bottom-to-top for natural falling physics, alternating horizontal scan each row
+      for (let y = HEIGHT - 1; y >= 0; y--) {
+        const leftToRight = ((y + tickCount) & 1) === 0;
+        const rowOffset = y * WIDTH;
+
+        for (let i = 0; i < WIDTH; i++) {
+          const x = leftToRight ? i : (WIDTH - 1 - i);
+          const idx = rowOffset + x;
+
+          const type = gridType[idx];
+          if (type === EL_EMPTY) continue;
+          if (gridStamp[idx] === frameParity) continue; // Already updated this frame
+
+          gridStamp[idx] = frameParity;
+
+          // --- A. Apply Kinetic Velocity (vx, vy) from Wind or Explosions ---
+          const elemState = ELEMENTS[type].state;
+          if (elemState !== STATE_SOLID && (Math.abs(gridVx[idx]) > 0.15 || Math.abs(gridVy[idx]) > 0.15)) {
+            const vx = gridVx[idx];
+            const vy = gridVy[idx];
+            const stepX = vx > 0 ? (Math.random() < vx ? 1 : 0) : (Math.random() < -vx ? -1 : 0);
+            const stepY = vy > 0 ? (Math.random() < vy ? 1 : 0) : (Math.random() < -vy ? -1 : 0);
+
+            // Aerodynamic drag
+            gridVx[idx] *= 0.91;
+            gridVy[idx] *= 0.91;
+            if (Math.abs(gridVx[idx]) < 0.08) gridVx[idx] = 0;
+            if (Math.abs(gridVy[idx]) < 0.08) gridVy[idx] = 0;
+
+            const tx = x + stepX;
+            const ty = y + stepY;
+            if ((stepX !== 0 || stepY !== 0) && inBounds(tx, ty)) {
+              const tIdx = ty * WIDTH + tx;
+              if (gridType[tIdx] === EL_EMPTY) {
+                swapCells(idx, tIdx);
+                continue;
+              } else if (gridType[tIdx] !== EL_WALL) {
+                // Transfer partial momentum on collision
+                gridVx[tIdx] += vx * 0.4;
+                gridVy[tIdx] += vy * 0.4;
+                gridVx[idx] *= -0.3;
+                gridVy[idx] *= -0.3;
+              }
+            }
+          }
+
+          // --- B. Element-Specific Chemistry & Movement Rules ---
+          switch (type) {
+            case EL_POWDER:
+            case EL_GUNPOWDER:
+            case EL_SEED:
+            case EL_SNOW: {
+              // Special behavior for Snow: gentle flutter & melt near heat
+              if (type === EL_SNOW) {
+                if (Math.random() < 0.35) {
+                  gridVx[idx] += (Math.random() - 0.5) * 0.35;
+                }
+                // Check neighbors for heat
+                for (let d = 0; d < 8; d++) {
+                  const nx = x + NEIGHBOR_DIRS[d][0];
+                  const ny = y + NEIGHBOR_DIRS[d][1];
+                  if (nx >= 0 && nx < WIDTH && ny >= 0 && ny < HEIGHT) {
+                    const nt = gridType[ny * WIDTH + nx];
+                    if (nt === EL_FIRE || nt === EL_MAGMA || nt === EL_STEAM) {
+                      setCell(idx, EL_WATER);
+                      break;
+                    }
+                  }
+                }
+                if (gridType[idx] !== EL_SNOW) continue;
+                // Snow falls slightly slower than sand
+                if (Math.random() < 0.25) continue;
+              }
+
+              // Special behavior for Seed: germinates when touching Water
+              if (type === EL_SEED) {
+                if (gridLife[idx] > 0) {
+                  // Actively sprouting upward into Plant/Wood!
+                  const energy = gridLife[idx];
+                  setCell(idx, EL_PLANT);
+                  const dirX = Math.random() < 0.4 ? (Math.random() < 0.5 ? -1 : 1) : 0;
+                  const gx = x + dirX;
+                  const gy = y - 1;
+                  if (inBounds(gx, gy)) {
+                    const gIdx = gy * WIDTH + gx;
+                    if (gridType[gIdx] === EL_EMPTY || gridType[gIdx] === EL_WATER) {
+                      setCell(gIdx, energy > 1 ? EL_SEED : EL_PLANT, energy - 1);
+                    }
+                  }
+                  // Occasional side branch
+                  if (energy > 3 && Math.random() < 0.28) {
+                    const bx = x + (Math.random() < 0.5 ? -1 : 1);
+                    if (inBounds(bx, y) && gridType[y * WIDTH + bx] === EL_EMPTY) {
+                      setCell(y * WIDTH + bx, EL_PLANT);
+                    }
+                  }
+                  continue;
+                } else {
+                  // Dormant seed checks neighbors for Water to absorb
+                  let hydrated = false;
+                  for (let d = 0; d < 8; d++) {
+                    const nx = x + NEIGHBOR_DIRS[d][0];
+                    const ny = y + NEIGHBOR_DIRS[d][1];
+                    if (nx >= 0 && nx < WIDTH && ny >= 0 && ny < HEIGHT) {
+                      const nIdx = ny * WIDTH + nx;
+                      if (gridType[nIdx] === EL_WATER) {
+                        clearCell(nIdx); // Absorb water
+                        gridLife[idx] = 6 + ((Math.random() * 9) | 0); // Start stem growth
+                        hydrated = true;
+                        break;
+                      }
+                    }
+                  }
+                  if (hydrated) continue;
+                }
+              }
+
+              // Standard Falling Powder Movement (Down, then Down-Left / Down-Right)
+              if (y + 1 < HEIGHT) {
+                const belowIdx = (y + 1) * WIDTH + x;
+                if (canDisplace(idx, belowIdx)) {
+                  swapCells(idx, belowIdx);
+                  continue;
+                }
+                const dir1 = Math.random() < 0.5 ? -1 : 1;
+                const dir2 = -dir1;
+                if (inBounds(x + dir1, y + 1) && canDisplace(idx, (y + 1) * WIDTH + (x + dir1))) {
+                  swapCells(idx, (y + 1) * WIDTH + (x + dir1));
+                  continue;
+                }
+                if (inBounds(x + dir2, y + 1) && canDisplace(idx, (y + 1) * WIDTH + (x + dir2))) {
+                  swapCells(idx, (y + 1) * WIDTH + (x + dir2));
+                  continue;
+                }
+              }
+              break;
+            }
+
+            case EL_WATER: {
+              // Move down, down-diagonal, or disperse horizontally up to 4 cells
+              if (y + 1 < HEIGHT) {
+                const belowIdx = (y + 1) * WIDTH + x;
+                if (canDisplace(idx, belowIdx)) {
+                  swapCells(idx, belowIdx);
+                  continue;
+                }
+                const dir = Math.random() < 0.5 ? -1 : 1;
+                if (inBounds(x + dir, y + 1) && canDisplace(idx, (y + 1) * WIDTH + (x + dir))) {
+                  swapCells(idx, (y + 1) * WIDTH + (x + dir));
+                  continue;
+                }
+                if (inBounds(x - dir, y + 1) && canDisplace(idx, (y + 1) * WIDTH + (x - dir))) {
+                  swapCells(idx, (y + 1) * WIDTH + (x - dir));
+                  continue;
+                }
+              }
+              // Horizontal liquid dispersion
+              const hDir = Math.random() < 0.5 ? -1 : 1;
+              for (let step = 1; step <= 4; step++) {
+                const tx = x + hDir * step;
+                if (!inBounds(tx, y)) break;
+                const tIdx = rowOffset + tx;
+                if (gridType[tIdx] === EL_EMPTY) {
+                  swapCells(idx, tIdx);
+                  break;
+                } else if (gridType[tIdx] !== EL_WATER) {
+                  break;
+                }
+              }
+              break;
+            }
+
+            case EL_MAGMA: {
+              // Magma Chemistry: check neighbors for Water, Ice, Snow, Flammables
+              let transformed = false;
+              for (let d = 0; d < 8; d++) {
+                const nx = x + NEIGHBOR_DIRS[d][0];
+                const ny = y + NEIGHBOR_DIRS[d][1];
+                if (nx < 0 || nx >= WIDTH || ny < 0 || ny >= HEIGHT) continue;
+                const nIdx = ny * WIDTH + nx;
+                const nt = gridType[nIdx];
+                if (nt === EL_EMPTY || nt === EL_MAGMA || nt === EL_WALL) continue;
+
+                // Water + Magma = Stone (Wall/Block) + Steam!
+                if (nt === EL_WATER) {
+                  setCell(nIdx, EL_STEAM);
+                  setCell(idx, EL_WALL);
+                  playSynthSfx('sizzle');
+                  transformed = true;
+                  break;
+                }
+                // Ice / Snow + Magma = Water + Steam
+                if (nt === EL_ICE || nt === EL_SNOW) {
+                  setCell(nIdx, EL_WATER);
+                  if (Math.random() < 0.25) setCell(idx, EL_WALL);
+                  transformed = true;
+                  break;
+                }
+                // Gunpowder / C4 + Magma = Detonation!
+                if (nt === EL_GUNPOWDER) {
+                  triggerExplosion(nx, ny, 10, 4.2);
+                  transformed = true;
+                  break;
+                }
+                if (nt === EL_C4) {
+                  triggerExplosion(nx, ny, 22, 7.5);
+                  transformed = true;
+                  break;
+                }
+                // Flammable materials ignite on contact with Magma
+                if (ELEMENTS[nt].flammable > 0 && Math.random() < ELEMENTS[nt].flammable) {
+                  setCell(nIdx, EL_FIRE, 45);
+                }
+              }
+              if (transformed) continue;
+
+              // Occasional spark emission above magma surface
+              if (y > 0 && gridType[(y - 1) * WIDTH + x] === EL_EMPTY && Math.random() < 0.008) {
+                setCell((y - 1) * WIDTH + x, EL_FIRE, 22);
+              }
+
+              // Viscous liquid movement (moves slower than water)
+              if (Math.random() < 0.45) continue;
+              if (y + 1 < HEIGHT) {
+                const belowIdx = (y + 1) * WIDTH + x;
+                if (canDisplace(idx, belowIdx)) {
+                  swapCells(idx, belowIdx);
+                  continue;
+                }
+                const dir = Math.random() < 0.5 ? -1 : 1;
+                if (inBounds(x + dir, y + 1) && canDisplace(idx, (y + 1) * WIDTH + (x + dir))) {
+                  swapCells(idx, (y + 1) * WIDTH + (x + dir));
+                  continue;
+                }
+              }
+              const mDir = Math.random() < 0.5 ? -1 : 1;
+              if (inBounds(x + mDir, y) && gridType[rowOffset + x + mDir] === EL_EMPTY) {
+                swapCells(idx, rowOffset + x + mDir);
+              }
+              break;
+            }
+
+            case EL_FIRE: {
+              // Decay lifespan
+              gridLife[idx]--;
+              if (gridLife[idx] <= 0) {
+                // Small chance to leave a wisp of Steam/Smoke when dying
+                if (Math.random() < 0.12) {
+                  setCell(idx, EL_STEAM, 50 + ((Math.random() * 40) | 0));
+                } else {
+                  clearCell(idx);
+                }
+                continue;
+              }
+
+              // Interact with surrounding pixels
+              let extinguished = false;
+              for (let d = 0; d < 8; d++) {
+                const nx = x + NEIGHBOR_DIRS[d][0];
+                const ny = y + NEIGHBOR_DIRS[d][1];
+                if (nx < 0 || nx >= WIDTH || ny < 0 || ny >= HEIGHT) continue;
+                const nIdx = ny * WIDTH + nx;
+                const nt = gridType[nIdx];
+                if (nt === EL_EMPTY || nt === EL_FIRE) continue;
+
+                // Water puts out Fire and turns to Steam
+                if (nt === EL_WATER) {
+                  clearCell(idx);
+                  if (Math.random() < 0.45) {
+                    setCell(nIdx, EL_STEAM);
+                    playSynthSfx('sizzle');
+                  }
+                  extinguished = true;
+                  break;
+                }
+                // Fire melts Ice and Snow into Water
+                if (nt === EL_ICE || nt === EL_SNOW) {
+                  setCell(nIdx, EL_WATER);
+                  clearCell(idx);
+                  extinguished = true;
+                  break;
+                }
+                // Fire triggers Gunpowder & C4 explosions
+                if (nt === EL_GUNPOWDER) {
+                  triggerExplosion(nx, ny, 10, 4.2);
+                  extinguished = true;
+                  break;
+                }
+                if (nt === EL_C4) {
+                  triggerExplosion(nx, ny, 22, 7.5);
+                  extinguished = true;
+                  break;
+                }
+                // Fire ignites Plant/Wood, Seed, Powder, Virus
+                if (ELEMENTS[nt].flammable > 0 && Math.random() < ELEMENTS[nt].flammable * 0.45) {
+                  setCell(nIdx, EL_FIRE, 42 + ((Math.random() * 22) | 0));
+                  // Spawn occasional smoke above burning wood
+                  if (ny > 0 && gridType[(ny - 1) * WIDTH + nx] === EL_EMPTY && Math.random() < 0.3) {
+                    setCell((ny - 1) * WIDTH + nx, EL_STEAM, 75);
+                  }
+                }
+              }
+              if (extinguished) continue;
+
+              // Fire rises and flickers laterally
+              const fx = x + ((Math.random() * 3) | 0) - 1;
+              const fy = y - (Math.random() < 0.82 ? 1 : 0);
+              if (inBounds(fx, fy)) {
+                const fIdx = fy * WIDTH + fx;
+                if (gridType[fIdx] === EL_EMPTY) {
+                  swapCells(idx, fIdx);
+                }
+              }
+              break;
+            }
+
+            case EL_ACID: {
+              // Acid eats through adjacent corrodible materials
+              let dissolvedSomething = false;
+              const checkOrder = [
+                [0, 1], [-1, 1], [1, 1], [-1, 0], [1, 0], [0, -1]
+              ];
+              for (let c = 0; c < checkOrder.length; c++) {
+                const nx = x + checkOrder[c][0];
+                const ny = y + checkOrder[c][1];
+                if (!inBounds(nx, ny)) continue;
+                const nIdx = ny * WIDTH + nx;
+                const nt = gridType[nIdx];
+                if (nt !== EL_EMPTY && nt !== EL_ACID && ELEMENTS[nt].corrodible) {
+                  if (Math.random() < 0.35) {
+                    playSynthSfx('sizzle');
+                    // Dissolve target into empty space or noxious steam wisp
+                    if (Math.random() < 0.25) {
+                      setCell(nIdx, EL_STEAM, 45);
+                    } else {
+                      clearCell(nIdx);
+                    }
+                    gridLife[idx]--;
+                    if (gridLife[idx] <= 0) {
+                      clearCell(idx);
+                    }
+                    dissolvedSomething = true;
+                    break;
+                  }
+                }
+              }
+              if (dissolvedSomething) continue;
+
+              // Acid flows like a brisk liquid
+              if (y + 1 < HEIGHT) {
+                const belowIdx = (y + 1) * WIDTH + x;
+                if (canDisplace(idx, belowIdx)) {
+                  swapCells(idx, belowIdx);
+                  continue;
+                }
+                const dir = Math.random() < 0.5 ? -1 : 1;
+                if (inBounds(x + dir, y + 1) && canDisplace(idx, (y + 1) * WIDTH + (x + dir))) {
+                  swapCells(idx, (y + 1) * WIDTH + (x + dir));
+                  continue;
+                }
+                if (inBounds(x - dir, y + 1) && canDisplace(idx, (y + 1) * WIDTH + (x - dir))) {
+                  swapCells(idx, (y + 1) * WIDTH + (x - dir));
+                  continue;
+                }
+              }
+              const aDir = Math.random() < 0.5 ? -1 : 1;
+              for (let step = 1; step <= 3; step++) {
+                const tx = x + aDir * step;
+                if (!inBounds(tx, y)) break;
+                const tIdx = rowOffset + tx;
+                if (gridType[tIdx] === EL_EMPTY) {
+                  swapCells(idx, tIdx);
+                  break;
+                } else if (gridType[tIdx] !== EL_ACID) {
+                  break;
+                }
+              }
+              break;
+            }
+
+            case EL_STEAM: {
+              gridLife[idx]--;
+              if (gridLife[idx] <= 0) {
+                // Slight chance high-altitude steam condenses back into a tiny water drop if touching Ice
+                clearCell(idx);
+                continue;
+              }
+
+              // Condense if touching Ice
+              for (let d = 0; d < 4; d++) {
+                const nx = x + NEIGHBOR_DIRS[d][0];
+                const ny = y + NEIGHBOR_DIRS[d][1];
+                if (inBounds(nx, ny) && gridType[ny * WIDTH + nx] === EL_ICE && Math.random() < 0.08) {
+                  setCell(idx, EL_WATER);
+                  break;
+                }
+              }
+              if (gridType[idx] !== EL_STEAM) continue;
+
+              // Rise and disperse
+              const gx = x + ((Math.random() * 3) | 0) - 1;
+              const gy = y - (Math.random() < 0.7 ? 1 : 0);
+              if (inBounds(gx, gy)) {
+                const gIdx = gy * WIDTH + gx;
+                if (gridType[gIdx] === EL_EMPTY || gridType[gIdx] === EL_WATER) {
+                  swapCells(idx, gIdx);
+                }
+              }
+              break;
+            }
+
+            case EL_CLONE: {
+              const clonedType = gridLife[idx];
+              if (clonedType === 0) {
+                // Inspect neighbors to latch onto the first valid touching element
+                for (let d = 0; d < 8; d++) {
+                  const nx = x + NEIGHBOR_DIRS[d][0];
+                  const ny = y + NEIGHBOR_DIRS[d][1];
+                  if (nx < 0 || nx >= WIDTH || ny < 0 || ny >= HEIGHT) continue;
+                  const nt = gridType[ny * WIDTH + nx];
+                  if (nt !== EL_EMPTY && nt !== EL_CLONE && nt !== EL_WALL) {
+                    gridLife[idx] = nt;
+                    break;
+                  }
+                }
+              } else {
+                // Spawn the cloned particle into random adjacent empty spaces
+                if (Math.random() < 0.35) {
+                  const d = (Math.random() * 8) | 0;
+                  const nx = x + NEIGHBOR_DIRS[d][0];
+                  const ny = y + NEIGHBOR_DIRS[d][1];
+                  if (inBounds(nx, ny)) {
+                    const nIdx = ny * WIDTH + nx;
+                    if (gridType[nIdx] === EL_EMPTY) {
+                      setCell(nIdx, clonedType);
+                      if (clonedType === EL_WIND) {
+                        gridVx[nIdx] = (Math.random() - 0.5) * 3.5;
+                        gridVy[nIdx] = (Math.random() - 0.5) * 3.5;
+                      }
+                    }
+                  }
+                }
+              }
+              break;
+            }
+
+            case EL_VIRUS: {
+              // Slowly infect adjacent non-wall, non-empty, non-clone, non-fire particles
+              if (Math.random() < 0.14) {
+                const d = (Math.random() * 8) | 0;
+                const nx = x + NEIGHBOR_DIRS[d][0];
+                const ny = y + NEIGHBOR_DIRS[d][1];
+                if (inBounds(nx, ny)) {
+                  const nIdx = ny * WIDTH + nx;
+                  const nt = gridType[nIdx];
+                  if (
+                    nt !== EL_EMPTY &&
+                    nt !== EL_WALL &&
+                    nt !== EL_CLONE &&
+                    nt !== EL_VIRUS &&
+                    nt !== EL_FIRE &&
+                    nt !== EL_MAGMA &&
+                    nt !== EL_ACID
+                  ) {
+                    setCell(nIdx, EL_VIRUS);
+                  }
+                }
+              }
+              // Virus also creeps slowly into empty adjacent spaces if touching another virus cell
+              if (Math.random() < 0.012) {
+                const d = (Math.random() * 8) | 0;
+                const nx = x + NEIGHBOR_DIRS[d][0];
+                const ny = y + NEIGHBOR_DIRS[d][1];
+                if (inBounds(nx, ny) && gridType[ny * WIDTH + nx] === EL_EMPTY) {
+                  swapCells(idx, ny * WIDTH + nx);
+                }
+              }
+              break;
+            }
+
+            case EL_WIND: {
+              gridLife[idx]--;
+              if (gridLife[idx] <= 0) {
+                clearCell(idx);
+                continue;
+              }
+              // Default breeze velocity if spawned stationary
+              if (Math.abs(gridVx[idx]) < 0.1 && Math.abs(gridVy[idx]) < 0.1) {
+                gridVx[idx] = (Math.random() - 0.3) * 2.6;
+                gridVy[idx] = (Math.random() - 0.5) * 1.4;
+              }
+              const wvx = gridVx[idx];
+              const wvy = gridVy[idx];
+
+              // Impart directional force to movable particles within a 2-pixel radius
+              for (let wy = -2; wy <= 2; wy++) {
+                const ny = y + wy;
+                if (ny < 0 || ny >= HEIGHT) continue;
+                for (let wx = -2; wx <= 2; wx++) {
+                  const nx = x + wx;
+                  if (nx < 0 || nx >= WIDTH) continue;
+                  const nIdx = ny * WIDTH + nx;
+                  const nt = gridType[nIdx];
+                  if (nt !== EL_EMPTY && nt !== EL_WIND && ELEMENTS[nt].state !== STATE_SOLID) {
+                    gridVx[nIdx] = Math.max(-5, Math.min(5, gridVx[nIdx] + wvx * 0.45));
+                    gridVy[nIdx] = Math.max(-5, Math.min(5, gridVy[nIdx] + wvy * 0.45));
+                  }
+                }
+              }
+
+              // Advance wind particle along its trajectory
+              const wxNext = x + (wvx > 0 ? 1 : (wvx < 0 ? -1 : 0));
+              const wyNext = y + (wvy > 0 ? 1 : (wvy < 0 ? -1 : 0));
+              if (inBounds(wxNext, wyNext)) {
+                const nextIdx = wyNext * WIDTH + wxNext;
+                if (gridType[nextIdx] === EL_EMPTY) {
+                  swapCells(idx, nextIdx);
+                }
+              }
+              break;
+            }
+
+            case EL_ICE: {
+              // Very slow freezing of adjacent still water when surrounded by ice
+              if (Math.random() < 0.004) {
+                const d = (Math.random() * 8) | 0;
+                const nx = x + NEIGHBOR_DIRS[d][0];
+                const ny = y + NEIGHBOR_DIRS[d][1];
+                if (inBounds(nx, ny) && gridType[ny * WIDTH + nx] === EL_WATER) {
+                  setCell(ny * WIDTH + nx, EL_ICE);
+                }
+              }
+              break;
+            }
+
+            default:
+              break;
+          }
+        }
+      }
+    }
+
+    // --- 9. High-Speed 32-Bit Pixel Buffer Renderer ---
+    const COLOR_BLACK = packRGB(0, 0, 0);
+    const COLOR_BORDER = packRGB(45, 55, 72);
+
+    function renderGrid() {
+      let count = 0;
+
+      for (let i = 0; i < SIZE; i++) {
+        const type = gridType[i];
+        if (type === EL_EMPTY) {
+          buf32[i] = COLOR_BLACK;
+          continue;
+        }
+        count++;
+
+        const shade = gridShade[i];
+        if (type === EL_FIRE) {
+          const lifeIdx = Math.max(0, Math.min(64, gridLife[i]));
+          buf32[i] = FIRE_PALETTE[lifeIdx];
+        } else if (type === EL_MAGMA) {
+          // Animated glowing magma pulse
+          const pulse = ((Math.sin(tickCount * 0.12 + i * 0.07) * 28) | 0) + shade;
+          buf32[i] = packRGB(255, 65 + pulse, 10);
+        } else if (type === EL_WATER) {
+          const shimmer = ((Math.sin(tickCount * 0.08 + i * 0.1) * 10) | 0) + shade;
+          buf32[i] = packRGB(38 + shimmer, 125 + shimmer, 255);
+        } else if (type === EL_PLANT) {
+          if (gridLife[i] === 1) {
+            // Wood bark accent pixel
+            buf32[i] = packRGB(115 + shade, 74 + shade, 36 + shade);
+          } else {
+            buf32[i] = packRGB(44 + shade, 138 + shade, 54 + shade);
+          }
+        } else if (type === EL_VIRUS) {
+          const vPulse = ((Math.cos(tickCount * 0.15 + i) * 18) | 0) + shade;
+          buf32[i] = packRGB(155 + vPulse, 45, 255);
+        } else if (type === EL_WIND) {
+          // Faint white translucent streaks
+          const alphaFade = Math.min(220, gridLife[i] * 8);
+          buf32[i] = packRGB(alphaFade, alphaFade, Math.min(255, alphaFade + 20));
+        } else {
+          const base = ELEMENTS[type].rgb;
+          buf32[i] = packRGB(base[0] + shade, base[1] + shade, base[2] + shade);
+        }
+      }
+
+      // Draw containment border indicator if enabled
+      if (containWalls) {
+        for (let x = 0; x < WIDTH; x++) {
+          buf32[x] = COLOR_BORDER;
+          buf32[(HEIGHT - 1) * WIDTH + x] = COLOR_BORDER;
+        }
+        for (let y = 0; y < HEIGHT; y++) {
+          buf32[y * WIDTH] = COLOR_BORDER;
+          buf32[y * WIDTH + (WIDTH - 1)] = COLOR_BORDER;
+        }
+      }
+
+      ctx.putImageData(imgData, 0, 0);
+
+      // Draw crisp cursor brush preview overlay on canvas
+      if (mouseGridX >= 0 && mouseGridY >= 0) {
+        const activeElem = activeMouseButton === 2 ? secondaryElement : primaryElement;
+        ctx.save();
+        ctx.strokeStyle = activeElem === EL_EMPTY ? '#f43f5e' : ELEMENTS[activeElem].color;
+        ctx.lineWidth = 1;
+        if (brushShape === 'square') {
+          ctx.strokeRect(
+            mouseGridX - brushRadius + 0.5,
+            mouseGridY - brushRadius + 0.5,
+            brushRadius * 2,
+            brushRadius * 2
+          );
+        } else {
+          ctx.beginPath();
+          ctx.arc(mouseGridX + 0.5, mouseGridY + 0.5, brushRadius, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.restore();
+      }
+
+      activeParticleCount = count;
+    }
+
+    // --- 10. Brush Painting & Bresenham Line Interpolation ---
+    function paintAt(cx, cy, elemType, vxImpulse, vyImpulse) {
+      const r = brushRadius;
+      const r2 = r * r;
+
+      for (let dy = -r; dy <= r; dy++) {
+        const y = cy + dy;
+        if (y < 0 || y >= HEIGHT) continue;
+        if (containWalls && (y <= 0 || y >= HEIGHT - 1)) continue;
+
+        for (let dx = -r; dx <= r; dx++) {
+          const x = cx + dx;
+          if (x < 0 || x >= WIDTH) continue;
+          if (containWalls && (x <= 0 || x >= WIDTH - 1)) continue;
+
+          if (brushShape === 'circle' && dx * dx + dy * dy > r2) continue;
+          if (brushShape === 'spray' && (dx * dx + dy * dy > r2 || Math.random() > 0.22)) continue;
+
+          const idx = y * WIDTH + x;
+          if (elemType === EL_EMPTY) {
+            clearCell(idx);
+          } else if (elemType === EL_WIND) {
+            // Wind also accelerates existing particles directly while spawning wind tracers
+            const cur = gridType[idx];
+            if (cur === EL_EMPTY && Math.random() < 0.35) {
+              setCell(idx, EL_WIND);
+              gridVx[idx] = vxImpulse || (Math.random() - 0.5) * 3;
+              gridVy[idx] = vyImpulse || (Math.random() - 0.5) * 2;
+            } else if (cur !== EL_EMPTY && ELEMENTS[cur].state !== STATE_SOLID) {
+              gridVx[idx] = Math.max(-6, Math.min(6, gridVx[idx] + (vxImpulse || 1.8)));
+              gridVy[idx] = Math.max(-6, Math.min(6, gridVy[idx] + (vyImpulse || -0.5)));
+            }
+          } else {
+            // Powders/Liquids/Gases have a slight organic scatter so they don't fall as rigid bricks
+            const state = ELEMENTS[elemType].state;
+            if ((state === STATE_POWDER || state === STATE_ENERGY || state === STATE_GAS) && r > 1 && Math.random() < 0.28) {
+              continue;
+            }
+            // Don't overwrite indestructible walls/clones unless explicitly drawing Wall/Clone
+            const existing = gridType[idx];
+            if ((existing === EL_WALL || existing === EL_CLONE) && elemType !== EL_WALL && elemType !== EL_CLONE) {
+              continue;
+            }
+            if (existing === EL_EMPTY || elemType === EL_WALL || elemType === EL_FIRE || elemType === EL_ACID) {
+              setCell(idx, elemType);
+            }
+          }
+        }
+      }
+      playSynthSfx('draw');
+    }
+
+    function paintLine(x0, y0, x1, y1, elemType, vxImpulse, vyImpulse) {
+      let dx = Math.abs(x1 - x0);
+      let dy = -Math.abs(y1 - y0);
+      let sx = x0 < x1 ? 1 : -1;
+      let sy = y0 < y1 ? 1 : -1;
+      let err = dx + dy;
+
+      while (true) {
+        paintAt(x0, y0, elemType, vxImpulse, vyImpulse);
+        if (x0 === x1 && y0 === y1) break;
+        const e2 = 2 * err;
+        if (e2 >= dy) {
+          err += dy;
+          x0 += sx;
+        }
+        if (e2 <= dx) {
+          err += dx;
+          y0 += sy;
+        }
+      }
+    }
+
+    // --- 11. Preset Sandbox Scenes ---
+    function clearGrid() {
+      gridType.fill(EL_EMPTY);
+      gridLife.fill(0);
+      gridShade.fill(0);
+      gridVx.fill(0);
+      gridVy.fill(0);
+    }
+
+    function drawRectElement(x1, y1, x2, y2, type, customLife) {
+      const minX = Math.max(1, Math.min(x1, x2));
+      const maxX = Math.min(WIDTH - 2, Math.max(x1, x2));
+      const minY = Math.max(1, Math.min(y1, y2));
+      const maxY = Math.min(HEIGHT - 2, Math.max(y1, y2));
+      for (let y = minY; y <= maxY; y++) {
+        for (let x = minX; x <= maxX; x++) {
+          setCell(y * WIDTH + x, type, customLife);
+        }
+      }
+    }
+
+    function loadPresetScene(presetName) {
+      clearGrid();
+      if (presetName === 'volcano') {
+        // Left: Volcano cone filled with Magma; Right: Water basin with Seed islands
+        for (let y = 110; y < HEIGHT - 1; y++) {
+          const spread = ((y - 110) * 0.75) | 0;
+          drawRectElement(95 - spread - 12, y, 95 - spread, y, EL_WALL);
+          drawRectElement(135 + spread, y, 135 + spread + 12, y, EL_WALL);
+          drawRectElement(96 - spread, y, 134 + spread, y, EL_MAGMA);
+        }
+        // Clone magma vent at bottom of crater
+        drawRectElement(108, HEIGHT - 12, 122, HEIGHT - 8, EL_CLONE, EL_MAGMA);
+        // Water lake on the right
+        drawRectElement(220, 165, 360, HEIGHT - 2, EL_WATER);
+        // Sand beach & Seeds
+        drawRectElement(195, 195, 235, HEIGHT - 2, EL_POWDER);
+        drawRectElement(255, 145, 330, 147, EL_SEED);
+      } else if (presetName === 'bunker') {
+        // Multi-tiered C4 & Gunpowder bunker ready for ignition
+        drawRectElement(70, 180, 310, 186, EL_WALL);
+        drawRectElement(100, 155, 280, 179, EL_C4);
+        drawRectElement(120, 125, 260, 154, EL_GUNPOWDER);
+        drawRectElement(90, 95, 290, 120, EL_POWDER);
+        drawRectElement(140, 75, 240, 90, EL_PLANT);
+        // Fuse on top
+        drawRectElement(186, 45, 194, 74, EL_PLANT);
+        drawRectElement(185, 36, 195, 44, EL_FIRE, 60);
+      } else if (presetName === 'ecosystem') {
+        // Terraced garden with water rain clones and seeds
+        drawRectElement(40, 195, 340, 202, EL_WALL);
+        drawRectElement(55, 170, 325, 194, EL_POWDER);
+        drawRectElement(65, 145, 315, 165, EL_WATER);
+        for (let x = 75; x <= 305; x += 22) {
+          drawRectElement(x, 120, x + 4, 124, EL_SEED);
+        }
+        // Cloud of gentle snow & water overhead
+        drawRectElement(90, 25, 290, 38, EL_SNOW);
+      } else if (presetName === 'factory') {
+        // Clone emitters & Acid vats
+        drawRectElement(45, 50, 75, 56, EL_CLONE, EL_WATER);
+        drawRectElement(145, 50, 175, 56, EL_CLONE, EL_POWDER);
+        drawRectElement(255, 50, 285, 56, EL_CLONE, EL_ACID);
+
+        // Funnel baffles
+        drawRectElement(35, 110, 110, 116, EL_WALL);
+        drawRectElement(130, 145, 220, 151, EL_PLANT);
+        drawRectElement(235, 120, 330, 132, EL_ICE);
+
+        // Bottom virus quarantine box
+        drawRectElement(60, 185, 66, 225, EL_WALL);
+        drawRectElement(150, 185, 156, 225, EL_WALL);
+        drawRectElement(60, 220, 156, 226, EL_WALL);
+        drawRectElement(70, 195, 145, 218, EL_POWDER);
+        drawRectElement(102, 190, 110, 196, EL_VIRUS);
+      } else if (presetName === 'blizzard') {
+        // Ice glacier & snowstorm with magma heater below
+        drawRectElement(30, 150, 170, 172, EL_ICE);
+        drawRectElement(210, 150, 350, 172, EL_ICE);
+        drawRectElement(60, 20, 320, 55, EL_SNOW);
+        drawRectElement(150, 210, 230, 216, EL_CLONE, EL_FIRE);
+      }
+    }
+
+    // --- 12. UI Initialization & Event Binding ---
+    function updateSelectionUI() {
+      const pElem = ELEMENTS[primaryElement];
+      const sElem = ELEMENTS[secondaryElement];
+
+      document.getElementById('primaryElemBadge').style.backgroundColor = pElem.color;
+      document.getElementById('primaryElemName').textContent = pElem.name;
+      document.getElementById('primaryElemState').textContent = `[${pElem.stateLabel}]`;
+      document.getElementById('elemDescText').textContent = pElem.desc;
+
+      document.getElementById('secondaryElemBadge').style.backgroundColor = sElem.color;
+      document.getElementById('secondaryElemName').textContent = sElem.name;
+
+      const buttons = document.querySelectorAll('.elem-btn');
+      buttons.forEach(btn => {
+        const id = Number(btn.dataset.elemId);
+        btn.classList.remove('active-primary', 'active-secondary');
+        if (id === primaryElement) btn.classList.add('active-primary');
+        else if (id === secondaryElement) btn.classList.add('active-secondary');
+      });
+    }
+
+    function buildPaletteUI() {
+      const grid = document.getElementById('paletteGrid');
+      grid.innerHTML = '';
+
+      ELEMENTS.forEach(el => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.dataset.elemId = el.id;
+        btn.className = 'elem-btn flex items-center gap-2 px-2.5 py-2 rounded-lg bg-slate-900/95 border border-slate-800 text-left';
+        btn.title = `${el.name} — ${el.desc}`;
+
+        const swatch = document.createElement('span');
+        swatch.className = 'w-3.5 h-3.5 rounded-sm shrink-0 border border-white/25 shadow-sm';
+        swatch.style.backgroundColor = el.color;
+
+        const textWrap = document.createElement('div');
+        textWrap.className = 'min-w-0 flex-1';
+
+        const title = document.createElement('div');
+        title.className = 'text-xs font-semibold text-slate-100 truncate leading-tight';
+        title.textContent = el.short;
+
+        const sub = document.createElement('div');
+        sub.className = 'text-[10px] text-slate-400 truncate leading-tight';
+        sub.textContent = el.stateLabel.split(' ')[0];
+
+        textWrap.appendChild(title);
+        textWrap.appendChild(sub);
+        btn.appendChild(swatch);
+        btn.appendChild(textWrap);
+
+        btn.addEventListener('click', () => {
+          initAudio();
+          primaryElement = el.id;
+          updateSelectionUI();
+        });
+
+        btn.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          initAudio();
+          secondaryElement = el.id;
+          updateSelectionUI();
+        });
+
+        grid.appendChild(btn);
+      });
+
+      updateSelectionUI();
+    }
+
+    function getCanvasGridCoords(clientX, clientY) {
+      const rect = canvas.getBoundingClientRect();
+      const normX = (clientX - rect.left) / rect.width;
+      const normY = (clientY - rect.top) / rect.height;
+      const gx = Math.floor(normX * WIDTH);
+      const gy = Math.floor(normY * HEIGHT);
+      return {
+        x: Math.max(0, Math.min(WIDTH - 1, gx)),
+        y: Math.max(0, Math.min(HEIGHT - 1, gy))
+      };
+    }
+
+    // Pointer Events on Canvas
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+    canvas.addEventListener('pointerdown', (e) => {
+      initAudio();
+      canvas.setPointerCapture(e.pointerId);
+      isPointerDown = true;
+      activeMouseButton = e.button === 2 ? 2 : 0;
+
+      const pt = getCanvasGridCoords(e.clientX, e.clientY);
+      mouseGridX = pt.x;
+      mouseGridY = pt.y;
+      prevMouseGridX = pt.x;
+      prevMouseGridY = pt.y;
+      dragVelX = 0;
+      dragVelY = 0;
+
+      const elem = activeMouseButton === 2 ? secondaryElement : primaryElement;
+      paintAt(mouseGridX, mouseGridY, elem, 2.2, 0);
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      const pt = getCanvasGridCoords(e.clientX, e.clientY);
+      dragVelX = Math.max(-5, Math.min(5, (pt.x - mouseGridX) * 0.65));
+      dragVelY = Math.max(-5, Math.min(5, (pt.y - mouseGridY) * 0.65));
+      prevMouseGridX = mouseGridX >= 0 ? mouseGridX : pt.x;
+      prevMouseGridY = mouseGridY >= 0 ? mouseGridY : pt.y;
+      mouseGridX = pt.x;
+      mouseGridY = pt.y;
+
+      document.getElementById('coordDisplay').textContent = `${pt.x}, ${pt.y}`;
+
+      if (isPointerDown) {
+        const elem = activeMouseButton === 2 ? secondaryElement : primaryElement;
+        paintLine(prevMouseGridX, prevMouseGridY, mouseGridX, mouseGridY, elem, dragVelX, dragVelY);
+      }
+    });
+
+    function endPointerDraw() {
+      isPointerDown = false;
+    }
+    canvas.addEventListener('pointerup', endPointerDraw);
+    canvas.addEventListener('pointercancel', endPointerDraw);
+    canvas.addEventListener('pointerleave', () => {
+      mouseGridX = -1;
+      mouseGridY = -1;
+      document.getElementById('coordDisplay').textContent = '---, ---';
+    });
+
+    // Mouse Wheel for Pen Size
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      if (e.deltaY < 0) {
+        setBrushSize(brushRadius + 1);
+      } else {
+        setBrushSize(brushRadius - 1);
+      }
+    }, { passive: false });
+
+    function setBrushSize(val) {
+      brushRadius = Math.max(1, Math.min(20, val | 0));
+      document.getElementById('brushSizeSlider').value = String(brushRadius);
+      document.getElementById('brushSizeVal').textContent = String(brushRadius);
+    }
+
+    function setBrushShape(shape) {
+      brushShape = shape;
+      const shapes = [
+        { id: 'shapeCircleBtn', key: 'circle' },
+        { id: 'shapeSquareBtn', key: 'square' },
+        { id: 'shapeSprayBtn',  key: 'spray' }
+      ];
+      shapes.forEach(s => {
+        const btn = document.getElementById(s.id);
+        if (s.key === shape) {
+          btn.className = 'px-2 py-0.5 rounded text-[11px] font-medium bg-sky-500/25 text-sky-300 border border-sky-500/40';
+        } else {
+          btn.className = 'px-2 py-0.5 rounded text-[11px] font-medium text-slate-400 hover:text-slate-200 border border-transparent';
+        }
+      });
+    }
+
+    function setPlayState(playing) {
+      isRunning = playing;
+      const btn = document.getElementById('playPauseBtn');
+      const icon = document.getElementById('playPauseIcon');
+      const txt = document.getElementById('playPauseText');
+      const dot = document.getElementById('fpsDot');
+
+      if (isRunning) {
+        icon.textContent = '⏸';
+        txt.textContent = 'Pause';
+        btn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 transition flex items-center gap-1.5';
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+      } else {
+        icon.textContent = '▶';
+        txt.textContent = 'Play';
+        btn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 transition flex items-center gap-1.5';
+        dot.className = 'w-2 h-2 rounded-full bg-amber-400';
+      }
+    }
+
+    // Bind Top Bar Controls
+    document.getElementById('playPauseBtn').addEventListener('click', () => {
+      setPlayState(!isRunning);
+    });
+
+    document.getElementById('stepFrameBtn').addEventListener('click', () => {
+      setPlayState(false);
+      stepPhysics();
+      renderGrid();
+      document.getElementById('particleCounter').textContent = activeParticleCount.toLocaleString();
+    });
+
+    document.getElementById('clearCanvasBtn').addEventListener('click', () => {
+      clearGrid();
+      renderGrid();
+      document.getElementById('particleCounter').textContent = '0';
+      document.getElementById('presetSelect').value = '';
+    });
+
+    document.getElementById('presetSelect').addEventListener('change', (e) => {
+      if (e.target.value) {
+        loadPresetScene(e.target.value);
+      }
+    });
+
+    document.getElementById('brushDecBtn').addEventListener('click', () => setBrushSize(brushRadius - 1));
+    document.getElementById('brushIncBtn').addEventListener('click', () => setBrushSize(brushRadius + 1));
+    document.getElementById('brushSizeSlider').addEventListener('input', (e) => setBrushSize(Number(e.target.value)));
+
+    document.getElementById('shapeCircleBtn').addEventListener('click', () => setBrushShape('circle'));
+    document.getElementById('shapeSquareBtn').addEventListener('click', () => setBrushShape('square'));
+    document.getElementById('shapeSprayBtn').addEventListener('click', () => setBrushShape('spray'));
+
+    document.getElementById('containWallsToggle').addEventListener('change', (e) => {
+      containWalls = e.target.checked;
+    });
+
+    document.getElementById('soundToggleBtn').addEventListener('click', () => {
+      initAudio();
+      soundEnabled = !soundEnabled;
+      document.getElementById('soundIcon').textContent = soundEnabled ? '🔊' : '🔇';
+      document.getElementById('soundLabel').textContent = soundEnabled ? 'SFX On' : 'SFX Muted';
+    });
+
+    // Help Modal Controls
+    const helpModal = document.getElementById('helpModal');
+    function openHelpModal() {
+      helpModal.classList.remove('hidden');
+      helpModal.classList.add('flex');
+    }
+    function closeHelpModal() {
+      helpModal.classList.add('hidden');
+      helpModal.classList.remove('flex');
+    }
+    document.getElementById('helpModalBtn').addEventListener('click', openHelpModal);
+    document.getElementById('closeHelpModalBtn').addEventListener('click', closeHelpModal);
+    document.getElementById('closeHelpBottomBtn').addEventListener('click', closeHelpModal);
+    helpModal.addEventListener('click', (e) => {
+      if (e.target === helpModal) closeHelpModal();
+    });
+
+    // Download Standalone HTML File Button
+    document.getElementById('downloadHtmlBtn').addEventListener('click', () => {
+      const htmlSource = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+      const blob = new Blob([htmlSource], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'powder_game_sandbox.html';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
+
+    // Keyboard Shortcuts
+    window.addEventListener('keydown', (e) => {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        setPlayState(!isRunning);
+      } else if (e.key === '[') {
+        setBrushSize(brushRadius - 1);
+      } else if (e.key === ']') {
+        setBrushSize(brushRadius + 1);
+      } else if (e.key === 'c' || e.key === 'C') {
+        clearGrid();
+      } else if (e.key === 's' || e.key === 'S') {
+        setPlayState(false);
+        stepPhysics();
+        renderGrid();
+      }
+    });
+
+    // --- 13. Main Animation Loop ---
+    let animFrameId = null;
+
+    function gameLoop(now) {
+      // Continuous spawn while holding pointer still
+      if (isPointerDown && mouseGridX >= 0 && mouseGridY >= 0) {
+        const elem = activeMouseButton === 2 ? secondaryElement : primaryElement;
+        paintAt(mouseGridX, mouseGridY, elem, dragVelX || 1.5, dragVelY || -0.3);
+      }
+
+      if (isRunning) {
+        stepPhysics();
+      }
+
+      renderGrid();
+
+      // Update FPS & Particle telemetry
+      framesThisSecond++;
+      if (now - lastFpsTime >= 500) {
+        currentFps = Math.min(60, Math.round((framesThisSecond * 1000) / (now - lastFpsTime)));
+        document.getElementById('fpsCounter').textContent = String(currentFps);
+        document.getElementById('particleCounter').textContent = activeParticleCount.toLocaleString();
+        framesThisSecond = 0;
+        lastFpsTime = now;
+      }
+
+      animFrameId = requestAnimationFrame(gameLoop);
+    }
+
+    // Initialize on load
+    window.onload = function () {
+      buildPaletteUI();
+      loadPresetScene('volcano');
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+      animFrameId = requestAnimationFrame(gameLoop);
+    };
+  </script>
+</body>
+</html>
