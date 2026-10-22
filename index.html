@@ -1,0 +1,2698 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>POWDER SANDBOX — Cellular Automata &amp; Fluid Physics Engine</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #090b10;
+      color: #e2e8f0;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    #simCanvas {
+      image-rendering: -moz-crisp-edges;
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: crisp-edges;
+      image-rendering: pixelated;
+      background-color: #000000;
+      touch-action: none;
+      cursor: crosshair;
+    }
+    .elem-btn {
+      transition: all 0.12s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+    }
+    .elem-btn:hover {
+      transform: translateY(-1px);
+      background-color: #1e2536;
+    }
+    .elem-btn.active-primary {
+      border-color: #38bdf8 !important;
+      background-color: rgba(56, 189, 248, 0.16);
+      box-shadow: 0 0 0 1px #38bdf8, 0 0 12px rgba(56, 189, 248, 0.25);
+    }
+    .elem-btn.active-secondary {
+      border-color: #f43f5e !important;
+      background-color: rgba(244, 63, 94, 0.16);
+      box-shadow: 0 0 0 1px #f43f5e, 0 0 10px rgba(244, 63, 94, 0.2);
+    }
+    .cat-tab.active-cat {
+      background-color: rgba(56, 189, 248, 0.2);
+      color: #7dd3fc;
+      border-color: rgba(56, 189, 248, 0.45);
+    }
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f131c;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #283248;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-[#090b10] text-slate-100">
+
+  <!-- Top Header & Telemetry Bar -->
+  <header class="w-full border-b border-slate-800/90 bg-[#0d111a]/95 backdrop-blur sticky top-0 z-20 px-3 py-2">
+    <div class="max-w-6xl mx-auto flex flex-wrap items-center justify-between gap-2">
+      <!-- Brand Title -->
+      <div class="flex items-center gap-2.5">
+        <div class="w-7 h-7 rounded-md bg-gradient-to-br from-amber-400 via-orange-500 to-rose-600 flex items-center justify-center shadow-md shadow-orange-500/20">
+          <span class="mono font-bold text-xs text-black">PS</span>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="font-bold text-sm sm:text-base tracking-tight text-white">POWDER SANDBOX</h1>
+            <span class="text-[10px] mono uppercase px-1.5 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30 font-semibold">40 Elements + Air Grid</span>
+          </div>
+          <p class="text-[11px] text-slate-400 hidden sm:block">Cellular Automata, Aerodynamic Pressure Field, Circuits, Lasers &amp; Physics Entities</p>
+        </div>
+      </div>
+
+      <!-- Real-Time Telemetry Counters -->
+      <div class="flex items-center gap-2 sm:gap-3 flex-wrap">
+        <div class="flex items-center gap-3 bg-slate-900/90 border border-slate-800 rounded-lg px-2.5 py-1 text-xs mono">
+          <div class="flex items-center gap-1.5" title="Frames Per Second">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" id="fpsDot"></span>
+            <span class="text-slate-400">FPS:</span>
+            <span id="fpsCounter" class="font-bold text-emerald-400">60</span>
+          </div>
+          <span class="text-slate-700">|</span>
+          <div class="flex items-center gap-1" title="Active Particles on Grid">
+            <span class="text-slate-400">DOTS:</span>
+            <span id="particleCounter" class="font-bold text-sky-400">0</span>
+          </div>
+          <span class="text-slate-700 hidden sm:inline">|</span>
+          <div class="hidden sm:flex items-center gap-1" title="Active Physics Entities (Fighters &amp; Wheels)">
+            <span class="text-slate-400">OBJ:</span>
+            <span id="entityCounter" class="font-bold text-amber-400">0</span>
+          </div>
+          <span class="text-slate-700 hidden md:inline">|</span>
+          <div class="hidden md:flex items-center gap-1" title="Cursor Grid Coordinates">
+            <span class="text-slate-400">XY:</span>
+            <span id="coordDisplay" class="text-slate-300">---, ---</span>
+          </div>
+        </div>
+
+        <!-- Quick Utility Buttons -->
+        <div class="flex items-center gap-1.5">
+          <button id="soundToggleBtn" type="button" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1" title="Toggle Synthesized Audio Effects">
+            <span id="soundIcon">🔊</span>
+            <span class="hidden sm:inline" id="soundLabel">SFX On</span>
+          </button>
+          <button id="helpModalBtn" type="button" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800/90 hover:bg-slate-700 text-slate-200 border border-slate-700 transition" title="Complete Chemistry, Circuit &amp; Contraption Guide">
+            ⚗️ Guide
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Workspace -->
+  <main class="flex-1 max-w-6xl w-full mx-auto px-2 sm:px-4 py-2.5 flex flex-col gap-2.5">
+
+    <!-- Top Simulation & World Physics Control Bar -->
+    <section class="bg-[#111622] border border-slate-800/90 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2 shadow-lg">
+      <!-- Playback & Screen Controls -->
+      <div class="flex items-center gap-1.5 flex-wrap">
+        <button id="playPauseBtn" type="button" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 transition flex items-center gap-1.5">
+          <span id="playPauseIcon">⏸</span>
+          <span id="playPauseText">Pause</span>
+        </button>
+        <button id="stepFrameBtn" type="button" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition" title="Advance 1 physics frame">
+          ⏭ Step
+        </button>
+        <button id="clearCanvasBtn" type="button" class="px-3 py-1.5 rounded-lg text-xs font-semibold bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 transition flex items-center gap-1">
+          🗑 Clear Screen
+        </button>
+
+        <div class="h-4 w-[1px] bg-slate-800 mx-0.5 hidden sm:block"></div>
+
+        <!-- World Physics Selectors: Boundary, Gravity, Background Air View, Speed -->
+        <select id="edgeModeSelect" class="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-sky-500" title="Boundary Edge Mode">
+          <option value="box">Border: Box (Closed)</option>
+          <option value="loop">Border: Loop (Wrap)</option>
+          <option value="void">Border: Void (Open)</option>
+        </select>
+
+        <select id="gravityModeSelect" class="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-sky-500" title="Gravity Direction">
+          <option value="1">Gravity: Normal ↓</option>
+          <option value="0">Gravity: Zero-G ○</option>
+          <option value="-1">Gravity: Inverted ↑</option>
+        </select>
+
+        <select id="bgModeSelect" class="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-sky-500" title="Background &amp; Aerodynamic Field Visualization">
+          <option value="air">BG: Air Pressure &amp; Wind</option>
+          <option value="none">BG: Pure Black</option>
+          <option value="glow">BG: Thermal Motion Trails</option>
+          <option value="grid">BG: Engineering Grid</option>
+        </select>
+
+        <!-- Optional Sandbox Contraption Demos -->
+        <select id="presetSelect" class="bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:border-sky-500" title="Load Optional Contraption Showcase">
+          <option value="">-- Optional Contraptions --</option>
+          <option value="volcano">🌋 Magma Volcano &amp; Lake</option>
+          <option value="bunker">💣 C4, Nitro &amp; Fuse Bunker</option>
+          <option value="circuit">⚡ Thunder Circuit &amp; Laser Lab</option>
+          <option value="arena">🤺 Fighter &amp; Wind Tunnel Arena</option>
+          <option value="ecosystem">🌱 Seed, Vine, Cloud &amp; Ant Colony</option>
+          <option value="factory">🧬 Clone, Acid &amp; Mercury Vats</option>
+          <option value="blizzard">❄️ Cryo Glacier &amp; Fireworks</option>
+        </select>
+      </div>
+
+      <!-- Brush / Pen Size & Shape Controls -->
+      <div class="flex items-center gap-2.5 flex-wrap">
+        <div class="flex items-center gap-1.5 bg-slate-900/90 border border-slate-800 rounded-lg px-2 py-1">
+          <span class="text-[11px] text-slate-400 font-medium">Pen:</span>
+          <button id="brushDecBtn" type="button" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center border border-slate-700" title="Decrease Brush Size ([)">−</button>
+          <input id="brushSizeSlider" type="range" min="1" max="24" value="4" class="w-20 sm:w-24 accent-sky-400 cursor-pointer h-1.5 bg-slate-700 rounded-lg" />
+          <button id="brushIncBtn" type="button" class="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex items-center justify-center border border-slate-700" title="Increase Brush Size (])">+</button>
+          <span id="brushSizeVal" class="mono text-xs font-bold text-sky-400 w-5 text-center">4</span>
+        </div>
+
+        <div class="flex items-center gap-1 bg-slate-900/90 border border-slate-800 rounded-lg p-1">
+          <button id="shapeCircleBtn" type="button" class="px-2 py-0.5 rounded text-[11px] font-medium bg-sky-500/25 text-sky-300 border border-sky-500/40" title="Circular Brush">● Circle</button>
+          <button id="shapeSquareBtn" type="button" class="px-2 py-0.5 rounded text-[11px] font-medium text-slate-400 hover:text-slate-200 border border-transparent" title="Square Block Brush">■ Square</button>
+          <button id="shapeSprayBtn" type="button" class="px-2 py-0.5 rounded text-[11px] font-medium text-slate-400 hover:text-slate-200 border border-transparent" title="Randomized Spray Brush">∴ Spray</button>
+          <button id="shapeLineBtn" type="button" class="px-2 py-0.5 rounded text-[11px] font-medium text-slate-400 hover:text-slate-200 border border-transparent" title="Hold Shift or use Line Ruler to draw straight walls/lasers">╱ Line</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Center Canvas Viewport -->
+    <section class="relative flex flex-col items-center justify-center bg-[#06080c] border-2 border-slate-800 rounded-xl overflow-hidden shadow-2xl">
+      <!-- Top Overlay Status Strip -->
+      <div class="w-full bg-[#0c1018] border-b border-slate-800/80 px-3 py-1.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <div class="flex items-center gap-3 flex-wrap">
+          <div class="flex items-center gap-1.5">
+            <span class="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 font-semibold">Left Click</span>
+            <span id="primaryElemBadge" class="w-3 h-3 rounded-sm inline-block border border-white/20" style="background:#e8c468;"></span>
+            <span id="primaryElemName" class="font-bold text-white">Powder (Sand)</span>
+            <span id="primaryElemState" class="text-[11px] text-slate-400 mono">[Powder]</span>
+          </div>
+          <span class="text-slate-700 hidden sm:inline">•</span>
+          <div class="hidden sm:flex items-center gap-1.5">
+            <span class="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 font-semibold">Right Click</span>
+            <span id="secondaryElemBadge" class="w-3 h-3 rounded-sm inline-block border border-white/20" style="background:#000000;"></span>
+            <span id="secondaryElemName" class="font-semibold text-slate-300">Empty (Eraser)</span>
+          </div>
+          <span class="text-slate-700 hidden lg:inline">•</span>
+          <div class="hidden lg:flex items-center gap-1 text-[11px] text-amber-300/90">
+            <span>🤺 Fighter Controls: <code class="mono">WASD / Arrows</code> to move &amp; jump, <code class="mono">E</code> to shoot selected element</span>
+          </div>
+        </div>
+        <div id="elemDescText" class="text-[11px] text-slate-400 truncate max-w-xl">
+          Classic falling sand. Sinks in water, fuses into Glass under intense heat, and rides aerodynamic wind waves.
+        </div>
+      </div>
+
+      <!-- Canvas Wrapper -->
+      <div id="canvasContainer" class="w-full flex items-center justify-center bg-black p-1 sm:p-2 relative">
+        <canvas id="simCanvas" width="400" height="252" class="w-full max-w-[960px] aspect-[100/63] border border-slate-800/90 shadow-inner rounded"></canvas>
+      </div>
+    </section>
+
+    <!-- Complete 40-Element Palette with Category Filter Tabs -->
+    <section class="bg-[#111622] border border-slate-800/90 rounded-xl p-3 shadow-lg">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-300 mr-1">Elements (40):</span>
+          <button type="button" data-cat="all" class="cat-tab active-cat px-2.5 py-1 rounded-md text-[11px] font-semibold border border-slate-700 text-slate-300 transition">All (40)</button>
+          <button type="button" data-cat="solids" class="cat-tab px-2.5 py-1 rounded-md text-[11px] font-semibold border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-slate-200 transition">🧱 Solids &amp; Walls</button>
+          <button type="button" data-cat="powders" class="cat-tab px-2.5 py-1 rounded-md text-[11px] font-semibold border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-slate-200 transition">⏳ Powders</button>
+          <button type="button" data-cat="liquids" class="cat-tab px-2.5 py-1 rounded-md text-[11px] font-semibold border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-slate-200 transition">💧 Liquids</button>
+          <button type="button" data-cat="gases" class="cat-tab px-2.5 py-1 rounded-md text-[11px] font-semibold border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-slate-200 transition">☁️ Gases &amp; Weather</button>
+          <button type="button" data-cat="explosives" class="cat-tab px-2.5 py-1 rounded-md text-[11px] font-semibold border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-slate-200 transition">💣 Explosives &amp; Energy</button>
+          <button type="button" data-cat="special" class="cat-tab px-2.5 py-1 rounded-md text-[11px] font-semibold border border-slate-800 bg-slate-900/80 text-slate-400 hover:text-slate-200 transition">⚙️ Contraptions &amp; Life</button>
+        </div>
+
+        <!-- Legacy Checkbox Synced with Border Mode -->
+        <div class="flex items-center gap-3">
+          <label class="flex items-center gap-1.5 text-xs text-slate-300 cursor-pointer" title="Toggle indestructible perimeter walls">
+            <input type="checkbox" id="containWallsToggle" checked class="accent-sky-400 rounded cursor-pointer" />
+            <span>Closed Perimeter</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Buttons injected & bound via JS -->
+      <div id="paletteGrid" class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-1.5"></div>
+    </section>
+
+    <!-- Physics & Contraption Engineering Reference Footer -->
+    <section class="grid grid-cols-1 md:grid-cols-4 gap-2.5 text-xs">
+      <div class="bg-[#111622]/90 border border-slate-800/80 rounded-xl p-3">
+        <h3 class="font-semibold text-sky-300 mb-1 flex items-center gap-1.5">🌬️ Fluid Air Grid &amp; Fans</h3>
+        <p class="text-slate-400 leading-relaxed">
+          An underlying aerodynamic Navier-Stokes velocity &amp; pressure grid drives wind tunnels, shockwaves, and thermal updrafts. Drag when placing <strong class="text-slate-200">Fan</strong> or <strong class="text-slate-200">Laser</strong> to set their directional emission vector!
+        </p>
+      </div>
+      <div class="bg-[#111622]/90 border border-slate-800/80 rounded-xl p-3">
+        <h3 class="font-semibold text-amber-300 mb-1 flex items-center gap-1.5">⚡ Electricity, Metal &amp; Optics</h3>
+        <p class="text-slate-400 leading-relaxed">
+          <strong class="text-slate-200">Thunder</strong> arcs through <strong class="text-slate-200">Metal</strong>, <strong class="text-slate-200">Mercury</strong>, and <strong class="text-slate-200">Saltwater</strong> wires to ignite distant C4/Nitro or fuse <strong class="text-slate-200">Powder</strong> into <strong class="text-slate-200">Glass</strong>. <strong class="text-slate-200">Lasers</strong> pass through Glass and reflect off Metal!
+        </p>
+      </div>
+      <div class="bg-[#111622]/90 border border-slate-800/80 rounded-xl p-3">
+        <h3 class="font-semibold text-emerald-300 mb-1 flex items-center gap-1.5">🌱 Botany, Ants &amp; Chemistry</h3>
+        <p class="text-slate-400 leading-relaxed">
+          <strong class="text-slate-200">Seed + Water</strong> grows branching <strong class="text-slate-200">Wood</strong> trees with <strong class="text-slate-200">Petal</strong> blossoms. <strong class="text-slate-200">Ants</strong> excavate subterranean colonies. <strong class="text-slate-200">Soapy + Wind</strong> whips up floating <strong class="text-slate-200">Bubbles</strong> and cures <strong class="text-slate-200">Virus</strong>.
+        </p>
+      </div>
+      <div class="bg-[#111622]/90 border border-slate-800/80 rounded-xl p-3">
+        <h3 class="font-semibold text-fuchsia-300 mb-1 flex items-center gap-1.5">🤺 Fighters, Wheels &amp; Bombs</h3>
+        <p class="text-slate-400 leading-relaxed">
+          Spawn <strong class="text-slate-200">Fighter</strong> stickmen (control with <code class="mono text-sky-300">WASD/Arrows</code>, fire element with <code class="mono text-sky-300">E</code>) and rolling <strong class="text-slate-200">Wheels</strong>. Combine <strong class="text-slate-200">Fuse</strong>, <strong class="text-slate-200">Nitro</strong>, <strong class="text-slate-200">C4</strong>, and <strong class="text-slate-200">Clone</strong> for chain-reaction machines!
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <!-- Chemistry & Contraption Manual Modal -->
+  <div id="helpModal" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-[#121826] border border-slate-700 rounded-2xl max-w-3xl w-full p-5 shadow-2xl max-h-[85vh] flex flex-col">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
+        <div>
+          <h2 class="text-base font-bold text-white">Powder Sandbox — Complete Physics, Chemistry &amp; Contraption Guide</h2>
+          <p class="text-xs text-slate-400">40 Interactive Elements, Aerodynamic Pressure Grid, Electrical Circuits &amp; Rigid-Body Entities</p>
+        </div>
+        <button id="closeHelpModalBtn" type="button" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center justify-center font-bold">✕</button>
+      </div>
+      <div class="overflow-y-auto space-y-3 text-xs text-slate-300 pr-1 leading-relaxed">
+        <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-3">
+          <h3 class="font-bold text-sky-400 mb-1">Controls &amp; Engineering Shortcuts</h3>
+          <ul class="list-disc list-inside space-y-1 text-slate-300">
+            <li><strong>Left-Click + Drag:</strong> Paint with Primary Element (for <strong>Fan</strong>, <strong>Laser</strong>, and <strong>Wind</strong>, your drag direction sets the beam/wind angle!).</li>
+            <li><strong>Right-Click + Drag:</strong> Paint with Secondary Element (right-click any palette button to assign it).</li>
+            <li><strong>Hold <code class="mono text-sky-300">Shift</code> + Drag (or select <code class="mono text-sky-300">╱ Line</code>):</strong> Draw perfectly straight walls, metal wires, glass lenses, or fuses.</li>
+            <li><strong>Fighter Control:</strong> Use <code class="mono text-sky-300">WASD</code> or <code class="mono text-sky-300">Arrow Keys</code> to walk/jump with spawned Fighters, and press <code class="mono text-sky-300">E</code> to make Fighters shoot your currently selected primary element!</li>
+            <li><strong>Hotkeys:</strong> <code class="mono text-sky-300">Space</code> (Pause/Play), <code class="mono text-sky-300">S</code> (Step 1 Frame), <code class="mono text-sky-300">C</code> (Clear All), <code class="mono text-sky-300">[</code> / <code class="mono text-sky-300">]</code> or Mouse Wheel (Pen Size).</li>
+          </ul>
+        </div>
+        <div class="bg-slate-900/90 border border-slate-800 rounded-lg p-3">
+          <h3 class="font-bold text-amber-400 mb-1">Advanced Chemistry &amp; Crazy Contraption Combos</h3>
+          <ul class="list-disc list-inside space-y-1 text-slate-300">
+            <li><strong>Electrical Detonators &amp; Liquid Switches:</strong> Wire <strong>Metal</strong> tracks to <strong>C4</strong> or <strong>Gunpowder</strong>. Use <strong>Mercury</strong> or <strong>Saltwater</strong> to bridge gaps in your circuit and strike one end with <strong>Thunder</strong>!</li>
+            <li><strong>Laser Optics &amp; Glass Forging:</strong> Strike <strong>Powder (Sand)</strong> with <strong>Thunder</strong> or <strong>Magma</strong> to vitrify it into <strong>Glass</strong>. Fire a <strong>Laser</strong> through Glass windows or bounce it off 45° <strong>Metal</strong> mirrors!</li>
+            <li><strong>Nitroglycerin Impact Physics:</strong> <strong>Nitro</strong> is sensitive to kinetic shock—dropping heavy <strong>Stone</strong> or firing a <strong>Wind</strong> blast onto Nitro triggers a high-pressure detonation that shatters nearby Glass and Stone.</li>
+            <li><strong>Thermobaric Fuel-Air Clouds:</strong> Fill an enclosed chamber with <strong>Gas</strong>, <strong>Oil</strong>, and <strong>Fireworks</strong>, then burn a slow <strong>Fuse</strong> through a pinhole to ignite the entire chamber.</li>
+            <li><strong>Autonomous Biomes:</strong> Combine <strong>Cloud</strong> (overhead rain/snow), <strong>Seed</strong>, <strong>Vine</strong>, and <strong>Ants</strong> on a bed of <strong>Powder</strong> to watch self-sustaining forests and underground ant colonies evolve.</li>
+          </ul>
+        </div>
+      </div>
+      <div class="mt-4 pt-3 border-t border-slate-800 flex justify-end">
+        <button id="closeHelpBottomBtn" type="button" class="px-4 py-1.5 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 font-semibold text-xs">Got It</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * ============================================================================
+     * POWDER SANDBOX — COMPLETE CELLULAR AUTOMATA & FLUID AERODYNAMICS ENGINE
+     * ============================================================================
+     * Core Engine Systems:
+     * 1. Flat 1D TypedArray Particle Grid (`WIDTH * HEIGHT`) rendered via 32-bit `Uint32Array`.
+     * 2. Coarse 2D Navier-Stokes Aerodynamic Grid (`AIR_W * AIR_H`, 4x4 pixel cells)
+     *    tracking real-time air velocity (`airVx`, `airVy`) and pressure (`airP`).
+     * 3. 40 Interactive Elements & Tools across Solids, Powders, Liquids, Gases,
+     *    Energetics/Optics, Explosives, Biology, and Physics Entities (Fighters & Wheels).
+     */
+
+    // --- 1. Grid & Aerodynamic Subgrid Dimensions ---
+    const WIDTH  = 400;
+    const HEIGHT = 252; // Divisible by 4 for exact air grid alignment
+    const SIZE   = WIDTH * HEIGHT;
+
+    const AIR_CELL = 4;
+    const AIR_W    = WIDTH / AIR_CELL;  // 100
+    const AIR_H    = HEIGHT / AIR_CELL; // 63
+    const AIR_SIZE = AIR_W * AIR_H;
+
+    // Matter States
+    const STATE_EMPTY   = 0;
+    const STATE_SOLID   = 1;
+    const STATE_POWDER  = 2;
+    const STATE_LIQUID  = 3;
+    const STATE_GAS     = 4;
+    const STATE_ENERGY  = 5;
+    const STATE_SPECIAL = 6;
+    const STATE_ENTITY  = 7;
+
+    // Complete 40 Element Type IDs
+    const EL_EMPTY      = 0;
+    const EL_WALL       = 1;
+    const EL_POWDER     = 2;
+    const EL_WATER      = 3;
+    const EL_FIRE       = 4;
+    const EL_MAGMA      = 5;
+    const EL_GUNPOWDER  = 6;
+    const EL_SEED       = 7;
+    const EL_PLANT      = 8;
+    const EL_ICE        = 9;
+    const EL_SNOW       = 10;
+    const EL_ACID       = 11;
+    const EL_STEAM      = 12;
+    const EL_C4         = 13;
+    const EL_CLONE      = 14;
+    const EL_VIRUS      = 15;
+    const EL_WIND       = 16;
+    const EL_STONE      = 17;
+    const EL_METAL      = 18;
+    const EL_GLASS      = 19;
+    const EL_SALT       = 20;
+    const EL_SALTWATER  = 21;
+    const EL_OIL        = 22;
+    const EL_NITRO      = 23;
+    const EL_MERCURY    = 24;
+    const EL_SOAPY      = 25;
+    const EL_BUBBLE     = 26;
+    const EL_GAS        = 27;
+    const EL_CLOUD      = 28;
+    const EL_FUSE       = 29;
+    const EL_TORCH      = 30;
+    const EL_THUNDER    = 31;
+    const EL_LASER      = 32;
+    const EL_FIREWORK   = 33;
+    const EL_BOMB       = 34;
+    const EL_VINE       = 35;
+    const EL_PETAL      = 36;
+    const EL_ANT        = 37;
+    const EL_FAN        = 38;
+    const EL_FIGHTER    = 39;
+    const EL_WHEEL      = 40;
+
+    // Master Element Catalog (40 Items)
+    const ELEMENTS = [
+      { id: EL_EMPTY,     cat: 'solids',     short: 'Eraser',     name: 'Empty (Eraser)',        color: '#000000', rgb: [0, 0, 0],       state: STATE_EMPTY,   stateLabel: 'Eraser',       density: 0,   flammable: 0,    corrodible: false, conductive: false, desc: 'Clears particles, walls, clones, fans, fighters, and wheels within the brush area.' },
+      { id: EL_WALL,      cat: 'solids',     short: 'Wall',       name: 'Wall / Block',          color: '#808594', rgb: [128, 133, 148], state: STATE_SOLID,   stateLabel: 'Solid',        density: 100, flammable: 0,    corrodible: false, conductive: false, desc: 'Indestructible immovable barrier. Blocks particles, explosions, acid, lasers, and air pressure.' },
+      { id: EL_POWDER,    cat: 'powders',    short: 'Powder',     name: 'Powder (Sand)',         color: '#e8c468', rgb: [232, 196, 104], state: STATE_POWDER,  stateLabel: 'Powder',       density: 25,  flammable: 0.05, corrodible: true,  conductive: false, desc: 'Classic granular sand. Piles up, sinks in water, and vitrifies into Glass under extreme heat or Thunder.' },
+      { id: EL_WATER,     cat: 'liquids',    short: 'Water',      name: 'Water',                 color: '#2b7fff', rgb: [43, 127, 255],  state: STATE_LIQUID,  stateLabel: 'Liquid',       density: 10,  flammable: 0,    corrodible: true,  conductive: true,  desc: 'Extinguishes fire, hydrates Seeds & Vines, dissolves Salt into Saltwater, and turns Magma into Stone.' },
+      { id: EL_FIRE,      cat: 'explosives', short: 'Fire',       name: 'Fire',                  color: '#ff4d00', rgb: [255, 77, 0],    state: STATE_ENERGY,  stateLabel: 'Energy',       density: -5,  flammable: 0,    corrodible: false, conductive: false, desc: 'Rising plasma flame. Generates thermal updrafts, ignites flammables, melts Ice/Snow, and boils Water.' },
+      { id: EL_MAGMA,     cat: 'liquids',    short: 'Magma',      name: 'Magma (Lava)',          color: '#ff3300', rgb: [255, 51, 0],    state: STATE_LIQUID,  stateLabel: 'Heavy Liquid', density: 35,  flammable: 0,    corrodible: true,  conductive: false, desc: 'Molten rock. Ignites flammables, melts Metal and Ice, fuses Sand into Glass, and turns Water into Stone + Steam.' },
+      { id: EL_GUNPOWDER, cat: 'explosives', short: 'Gunpowder',  name: 'Gunpowder',             color: '#52525b', rgb: [82, 82, 91],    state: STATE_POWDER,  stateLabel: 'Explosive',    density: 22,  flammable: 0.95, corrodible: true,  conductive: false, desc: 'Explosive granular powder. Detonates with a fiery blast wave when ignited by Fire, Magma, Laser, or Thunder.' },
+      { id: EL_SEED,      cat: 'special',    short: 'Seed',       name: 'Seed',                  color: '#74e344', rgb: [116, 227, 68],  state: STATE_POWDER,  stateLabel: 'Botanical',    density: 18,  flammable: 0.45, corrodible: true,  conductive: false, desc: 'Absorbs touching Water to germinate and sprout upward into branching Wood/Plant trees with Petal blossoms.' },
+      { id: EL_PLANT,     cat: 'solids',     short: 'Plant/Wood', name: 'Plant / Wood',          color: '#2e8538', rgb: [46, 133, 56],   state: STATE_SOLID,   stateLabel: 'Organic Solid',density: 50,  flammable: 0.55, corrodible: true,  conductive: false, desc: 'Immovable organic wood & foliage. Highly flammable and supports creeping Vine growth when hydrated.' },
+      { id: EL_ICE,       cat: 'solids',     short: 'Ice',        name: 'Ice',                   color: '#88ddff', rgb: [136, 221, 255], state: STATE_SOLID,   stateLabel: 'Cryo Solid',   density: 50,  flammable: 0,    corrodible: true,  conductive: false, desc: 'Crystalline cryo solid. Slowly freezes adjacent Water, melts near heat, and shatters under blast pressure.' },
+      { id: EL_SNOW,      cat: 'powders',    short: 'Snow',       name: 'Snow',                  color: '#f1f5f9', rgb: [241, 245, 249], state: STATE_POWDER,  stateLabel: 'Cryo Powder',  density: 8,   flammable: 0,    corrodible: true,  conductive: false, desc: 'Light drifting snow. Melts near heat and compacts into solid Ice when buried or compressed.' },
+      { id: EL_ACID,      cat: 'liquids',    short: 'Acid',       name: 'Acid',                  color: '#39ff14', rgb: [57, 255, 20],   state: STATE_LIQUID,  stateLabel: 'Corrosive',    density: 14,  flammable: 0,    corrodible: false, conductive: false, desc: 'Corrosive green acid. Dissolves almost any material on contact except Wall, Glass, and Clone.' },
+      { id: EL_STEAM,     cat: 'gases',      short: 'Steam',      name: 'Steam / Smoke',         color: '#cbd5e1', rgb: [203, 213, 225], state: STATE_GAS,     stateLabel: 'Gas',          density: -4,  flammable: 0,    corrodible: false, conductive: false, desc: 'Rising vapor. Condenses back into Water droplets when cooled by Ice or high altitude.' },
+      { id: EL_C4,        cat: 'explosives', short: 'C4',         name: 'C4 (Plastic Explosive)',color: '#1b6b45', rgb: [27, 107, 69],   state: STATE_SOLID,   stateLabel: 'High Explosive',density: 60, flammable: 0.99, corrodible: true,  conductive: false, desc: 'Immovable high-velocity plastic explosive. Detonates with a massive shockwave when triggered by Fire, Fuse, Laser, or Thunder.' },
+      { id: EL_CLONE,     cat: 'special',    short: 'Clone',      name: 'Clone',                 color: '#e024c6', rgb: [224, 36, 198],  state: STATE_SOLID,   stateLabel: 'Replicator',   density: 95,  flammable: 0,    corrodible: false, conductive: false, desc: 'Indestructible magenta replicator. Latches onto the first element that touches it and endlessly spawns copies.' },
+      { id: EL_VIRUS,     cat: 'special',    short: 'Virus',      name: 'Virus',                 color: '#9b30ff', rgb: [155, 48, 255],  state: STATE_SOLID,   stateLabel: 'Contagion',    density: 45,  flammable: 0.4,  corrodible: true,  conductive: false, desc: 'Purple creeping contagion. Infects and converts adjacent particles into Virus. Neutralized by Soapy or Fire.' },
+      { id: EL_WIND,      cat: 'gases',      short: 'Wind',       name: 'Wind (Air Force)',      color: '#e2e8f0', rgb: [226, 232, 240], state: STATE_SPECIAL, stateLabel: 'Aerodynamic',  density: -1,  flammable: 0,    corrodible: false, conductive: false, desc: 'Injects directional air velocity and pressure waves along your cursor drag vector.' },
+      { id: EL_STONE,     cat: 'powders',    short: 'Stone',      name: 'Stone / Concrete',      color: '#64748b', rgb: [100, 116, 139], state: STATE_POWDER,  stateLabel: 'Heavy Mineral',density: 42,  flammable: 0,    corrodible: true,  conductive: false, desc: 'Heavy angular gravel that locks together to form self-supporting arches. Melts into Magma under intense heat.' },
+      { id: EL_METAL,     cat: 'solids',     short: 'Metal',      name: 'Metal',                 color: '#94a3b8', rgb: [148, 163, 184], state: STATE_SOLID,   stateLabel: 'Conductive',   density: 90,  flammable: 0,    corrodible: true,  conductive: true,  desc: 'Conductive structural metal. Transmits Thunder electricity along wires, reflects Laser beams, and corrodes in Acid.' },
+      { id: EL_GLASS,     cat: 'solids',     short: 'Glass',      name: 'Glass',                 color: '#67e8f9', rgb: [103, 232, 249], state: STATE_SOLID,   stateLabel: 'Optical Solid',density: 70,  flammable: 0,    corrodible: false, conductive: false, desc: 'Acid-proof optical barrier (also formed when Sand is heated). Transmits Lasers cleanly; shatters under explosions!' },
+      { id: EL_SALT,      cat: 'powders',    short: 'Salt',       name: 'Salt',                  color: '#ffffff', rgb: [248, 250, 252], state: STATE_POWDER,  stateLabel: 'Soluble Powder',density: 20, flammable: 0,    corrodible: true,  conductive: false, desc: 'White mineral crystals. Dissolves rapidly in Water to create conductive Saltwater and melts Ice on contact.' },
+      { id: EL_SALTWATER, cat: 'liquids',    short: 'Saltwater',  name: 'Saltwater (Brine)',     color: '#0284c7', rgb: [2, 132, 199],   state: STATE_LIQUID,  stateLabel: 'Conductive Liq',density: 15, flammable: 0,    corrodible: true,  conductive: true,  desc: 'Dense conductive brine. Conducts Thunder electricity strongly and precipitates Salt crystals when boiled.' },
+      { id: EL_OIL,       cat: 'liquids',    short: 'Oil',        name: 'Oil',                   color: '#d97706', rgb: [217, 119, 6],   state: STATE_LIQUID,  stateLabel: 'Light Fuel',   density: 6,   flammable: 0.9,  corrodible: true,  conductive: false, desc: 'Light amber petroleum. Floats on top of Water and burns fiercely with thick smoke when ignited.' },
+      { id: EL_NITRO,     cat: 'explosives', short: 'Nitro',      name: 'Nitro (Nitroglycerin)', color: '#10b981', rgb: [16, 185, 129],  state: STATE_LIQUID,  stateLabel: 'Shock-Explosive',density: 18,flammable: 1.0,  corrodible: true,  conductive: false, desc: 'Hyper-volatile liquid explosive! Detonates from Fire, Thunder, Laser, OR high-speed impact / pressure shockwaves.' },
+      { id: EL_MERCURY,   cat: 'liquids',    short: 'Mercury',    name: 'Mercury (Liquid Metal)',color: '#cbd5e1', rgb: [203, 213, 225], state: STATE_LIQUID,  stateLabel: 'Liquid Metal', density: 48,  flammable: 0,    corrodible: true,  conductive: true,  desc: 'Ultra-dense liquid silver metal. Sinks below all liquids and powders and conducts Thunder electricity as a liquid switch.' },
+      { id: EL_SOAPY,     cat: 'liquids',    short: 'Soapy',      name: 'Soapy Water',           color: '#38bdf8', rgb: [56, 189, 248],  state: STATE_LIQUID,  stateLabel: 'Surfactant',   density: 9,   flammable: 0,    corrodible: true,  conductive: false, desc: 'Foamy surfactant liquid. Whips into floating Bubbles when agitated by Wind/Fans and cures Virus on contact!' },
+      { id: EL_BUBBLE,    cat: 'gases',      short: 'Bubble',     name: 'Bubble',                color: '#a5f3fc', rgb: [165, 243, 252], state: STATE_GAS,     stateLabel: 'Elastic Film', density: -2,  flammable: 0,    corrodible: true,  conductive: false, desc: 'Iridescent floating soap bubble. Drifts on air currents, cures Virus, and pops into Soapy droplets.' },
+      { id: EL_GAS,       cat: 'gases',      short: 'Gas',        name: 'Gas (Hydrocarbon)',     color: '#c084fc', rgb: [192, 132, 252], state: STATE_GAS,     stateLabel: 'Flammable Gas',density: -3,  flammable: 0.98, corrodible: false, conductive: false, desc: 'Diffusing volatile gas. Fills chambers and ignites into a rapid thermobaric flash-fire when sparked.' },
+      { id: EL_CLOUD,     cat: 'gases',      short: 'Cloud',      name: 'Cloud (Weather)',       color: '#e2e8f0', rgb: [226, 232, 240], state: STATE_GAS,     stateLabel: 'Weather Vapor',density: -6,  flammable: 0,    corrodible: false, conductive: false, desc: 'High-altitude weather cloud. Drifts across the ceiling and precipitates Rain (Water), Snow, or Thunder bolts.' },
+      { id: EL_FUSE,      cat: 'explosives', short: 'Fuse',       name: 'Fuse Cord',             color: '#b45309', rgb: [180, 83, 9],    state: STATE_SOLID,   stateLabel: 'Pyro Cord',    density: 55,  flammable: 0.85, corrodible: true,  conductive: false, desc: 'Slow-burning pyrotechnic cord. Burns steadily along drawn paths to trigger timed C4/Nitro/Firework chains.' },
+      { id: EL_TORCH,     cat: 'explosives', short: 'Torch',      name: 'Torch (Continuous)',    color: '#fb923c', rgb: [251, 146, 60],  state: STATE_SOLID,   stateLabel: 'Heat Emitter', density: 80,  flammable: 0,    corrodible: true,  conductive: false, desc: 'Permanent flame emitter block. Continuously generates Fire and thermal updrafts unless extinguished by Water.' },
+      { id: EL_THUNDER,   cat: 'explosives', short: 'Thunder',    name: 'Thunder (Lightning)',   color: '#fde047', rgb: [253, 224, 71],  state: STATE_ENERGY,  stateLabel: 'High Voltage', density: -1,  flammable: 0,    corrodible: false, conductive: true,  desc: 'Jagged lightning discharge! Strikes downward, arcs through Metal/Mercury/Saltwater wires, fuses Sand to Glass, and detonates C4.' },
+      { id: EL_LASER,     cat: 'explosives', short: 'Laser',      name: 'Laser Beam',            color: '#ff0055', rgb: [255, 0, 85],    state: STATE_ENERGY,  stateLabel: 'Photon Beam',  density: 0,   flammable: 0,    corrodible: false, conductive: false, desc: 'Coherent light beam! Drag to aim—shoots at light speed, passes through Glass, reflects off Metal, and slices/ignites targets.' },
+      { id: EL_FIREWORK,  cat: 'explosives', short: 'Firework',   name: 'Firework Rocket',       color: '#f43f5e', rgb: [244, 63, 94],   state: STATE_POWDER,  stateLabel: 'Pyrotechnic',  density: 19,  flammable: 0.9,  corrodible: true,  conductive: false, desc: 'Pyrotechnic powder. When ignited by Fire or Fuse, rockets skyward and bursts into vibrant multi-colored star shells!' },
+      { id: EL_BOMB,      cat: 'explosives', short: 'Bomb',       name: 'Bomb (Cluster)',        color: '#84cc16', rgb: [132, 204, 22],  state: STATE_POWDER,  stateLabel: 'Contact Bomb', density: 28,  flammable: 1.0,  corrodible: true,  conductive: false, desc: 'Impact cluster bomb. Falls until it touches any non-empty material, then detonates into high-velocity shrapnel!' },
+      { id: EL_VINE,      cat: 'special',    short: 'Vine',       name: 'Vine',                  color: '#16a34a', rgb: [22, 163, 74],   state: STATE_SOLID,   stateLabel: 'Creeping Plant',density: 48, flammable: 0.6,  corrodible: true,  conductive: false, desc: 'Creeping botanical vine. Absorbs Water to drape downward and climb along adjacent walls and wood.' },
+      { id: EL_PETAL,     cat: 'special',    short: 'Petal',      name: 'Petal (Blossom)',       color: '#f472b6', rgb: [244, 114, 182], state: STATE_SOLID,   stateLabel: 'Flora Blossom',density: 40,  flammable: 0.75, corrodible: true,  conductive: false, desc: 'Colorful flower blossom that blooms on sprouting Seed trees or can be painted directly as decorative flammable flora.' },
+      { id: EL_ANT,       cat: 'special',    short: 'Ant',        name: 'Ant (Tunneler)',        color: '#eab308', rgb: [234, 179, 8],   state: STATE_POWDER,  stateLabel: 'Cellular Bio', density: 16,  flammable: 0.8,  corrodible: true,  conductive: false, desc: 'Autonomous cellular insect! Walks along terrain and excavates intricate subterranean ant-colony tunnels through Sand and Wood.' },
+      { id: EL_FAN,       cat: 'special',    short: 'Fan',        name: 'Fan (Wind Turbine)',    color: '#06b6d4', rgb: [6, 182, 212],   state: STATE_SOLID,   stateLabel: 'Air Emitter',  density: 90,  flammable: 0,    corrodible: false, conductive: false, desc: 'Directional wind turbine block! Drag while drawing to aim its continuous high-velocity air stream.' },
+      { id: EL_FIGHTER,   cat: 'special',    short: 'Fighter',    name: 'Fighter (Stickman)',    color: '#ffffff', rgb: [255, 255, 255], state: STATE_ENTITY,  stateLabel: 'Entity (Max 50)',density: 30,flammable: 0,    corrodible: false, conductive: false, desc: 'Articulated physics stickman! Walks, jumps, kicks particles, rides wind gusts, and responds to WASD/Arrows + E to shoot!' },
+      { id: EL_WHEEL,     cat: 'special',    short: 'Wheel',      name: 'Wheel / Physics Ball',  color: '#f59e0b', rgb: [245, 158, 11],  state: STATE_ENTITY,  stateLabel: 'Rigid Entity', density: 35,  flammable: 0,    corrodible: false, conductive: false, desc: 'Spoked rigid-body wheel that rolls down slopes, bounces, floats on dense fluids, and spins in wind tunnels!' }
+    ];
+
+    // --- 2. 1D TypedArray Cellular Automata Buffers ---
+    const gridType  = new Uint8Array(SIZE);   // Element ID per pixel
+    const gridLife  = new Int16Array(SIZE);   // Lifespan / State Timer / Cloned ID / Charge
+    const gridMeta  = new Int16Array(SIZE);   // Secondary data (e.g., Laser/Ant direction, Firework hue, Fan angle)
+    const gridShade = new Int8Array(SIZE);    // Per-particle color variation (-14..+14)
+    const gridVx    = new Float32Array(SIZE); // Particle horizontal velocity
+    const gridVy    = new Float32Array(SIZE); // Particle vertical velocity
+    const gridStamp = new Uint8Array(SIZE);   // Frame parity stamp
+
+    // Coarse Aerodynamic Fluid Grid (4x4 pixel cells)
+    const airVx     = new Float32Array(AIR_SIZE);
+    const airVy     = new Float32Array(AIR_SIZE);
+    const airP      = new Float32Array(AIR_SIZE);
+    const airVxNext = new Float32Array(AIR_SIZE);
+    const airVyNext = new Float32Array(AIR_SIZE);
+    const airPNext  = new Float32Array(AIR_SIZE);
+    const airBlocked= new Uint8Array(AIR_SIZE);
+
+    // Rigid/Articulated Physics Entities (Fighters & Wheels)
+    let entities = []; // { kind: 'fighter'|'wheel', x, y, vx, vy, dir, walkPhase, angle, angVel, hp, onGround }
+    const MAX_ENTITIES = 60;
+    const keysHeld = {};
+
+    // --- 3. Canvas & Fast 32-Bit Pixel Buffer Setup ---
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    const imgData = ctx.createImageData(WIDTH, HEIGHT);
+    const buf32 = new Uint32Array(imgData.data.buffer);
+
+    function packRGB(r, g, b) {
+      const cr = r < 0 ? 0 : (r > 255 ? 255 : r | 0);
+      const cg = g < 0 ? 0 : (g > 255 ? 255 : g | 0);
+      const cb = b < 0 ? 0 : (b > 255 ? 255 : b | 0);
+      return (255 << 24) | (cb << 16) | (cg << 8) | cr;
+    }
+
+    // Precomputed Fire & Firework Palettes
+    const FIRE_PALETTE = new Uint32Array(65);
+    for (let i = 0; i <= 64; i++) {
+      const t = i / 64;
+      const r = Math.min(255, Math.floor(175 + t * 80));
+      const g = Math.min(255, Math.floor(t * t * 240));
+      const b = Math.min(255, Math.floor(Math.pow(t, 4) * 175));
+      FIRE_PALETTE[i] = packRGB(r, g, b);
+    }
+
+    const FIREWORK_COLORS = [
+      [255, 65, 108],  // Neon Rose
+      [56, 189, 248],  // Cyan Sky
+      [163, 230, 53],  // Lime Flash
+      [250, 204, 21],  // Gold Star
+      [192, 132, 252], // Violet Nova
+      [251, 146, 60]   // Tangerine Burst
+    ];
+
+    // --- 4. Simulation & UI State ---
+    let isRunning = true;
+    let frameParity = 1;
+    let tickCount = 0;
+    let primaryElement = EL_POWDER;
+    let secondaryElement = EL_EMPTY;
+    let brushRadius = 4;
+    let brushShape = 'circle'; // 'circle' | 'square' | 'spray' | 'line'
+    let edgeMode = 'box';      // 'box' | 'loop' | 'void'
+    let gravityDir = 1;        // 1 = down, 0 = zero-G, -1 = up
+    let bgMode = 'air';        // 'air' | 'none' | 'glow' | 'grid'
+    let activeCategory = 'all';
+
+    // Pointer & Line-Tool Tracking
+    let isPointerDown = false;
+    let activeMouseButton = 0;
+    let mouseGridX = -1;
+    let mouseGridY = -1;
+    let prevMouseGridX = -1;
+    let prevMouseGridY = -1;
+    let lineStartX = -1;
+    let lineStartY = -1;
+    let dragVelX = 0;
+    let dragVelY = 0;
+
+    // FPS Telemetry
+    let lastFpsTime = performance.now();
+    let framesThisSecond = 0;
+    let currentFps = 60;
+    let activeParticleCount = 0;
+
+    // --- 5. Synthesized Web Audio API Sound Effects ---
+    let audioCtx = null;
+    let soundEnabled = true;
+    let lastSoundTime = 0;
+
+    function initAudio() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        if (AudioContextClass) {
+          audioCtx = new AudioContextClass();
+        }
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function playSynthSfx(kind) {
+      if (!soundEnabled || !audioCtx) return;
+      const now = performance.now();
+      if (kind !== 'explosion' && kind !== 'thunder' && now - lastSoundTime < 55) return;
+      lastSoundTime = now;
+
+      try {
+        const t0 = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (kind === 'explosion') {
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(115, t0);
+          osc.frequency.exponentialRampToValueAtTime(20, t0 + 0.34);
+          gain.gain.setValueAtTime(0.16, t0);
+          gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.36);
+          osc.start(t0);
+          osc.stop(t0 + 0.37);
+        } else if (kind === 'thunder') {
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(480, t0);
+          osc.frequency.exponentialRampToValueAtTime(55, t0 + 0.22);
+          gain.gain.setValueAtTime(0.12, t0);
+          gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.24);
+          osc.start(t0);
+          osc.stop(t0 + 0.25);
+        } else if (kind === 'laser') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(980, t0);
+          osc.frequency.exponentialRampToValueAtTime(260, t0 + 0.09);
+          gain.gain.setValueAtTime(0.06, t0);
+          gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.1);
+          osc.start(t0);
+          osc.stop(t0 + 0.11);
+        } else if (kind === 'sizzle') {
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(540 + Math.random() * 280, t0);
+          osc.frequency.exponentialRampToValueAtTime(180, t0 + 0.08);
+          gain.gain.setValueAtTime(0.035, t0);
+          gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.085);
+          osc.start(t0);
+          osc.stop(t0 + 0.09);
+        } else if (kind === 'draw') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(210 + (primaryElement * 18) + Math.random() * 35, t0);
+          gain.gain.setValueAtTime(0.018, t0);
+          gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.038);
+          osc.start(t0);
+          osc.stop(t0 + 0.04);
+        }
+      } catch (e) {
+        // Ignore audio context restrictions
+      }
+    }
+
+    // --- 6. Coordinate Mapping & Boundary Logic (Box, Loop, Void) ---
+    function resolveCoords(x, y) {
+      if (edgeMode === 'loop') {
+        const rx = ((x % WIDTH) + WIDTH) % WIDTH;
+        const ry = ((y % HEIGHT) + HEIGHT) % HEIGHT;
+        return ry * WIDTH + rx;
+      } else if (edgeMode === 'box') {
+        if (x < 1 || x >= WIDTH - 1 || y < 1 || y >= HEIGHT - 1) return -1;
+        return y * WIDTH + x;
+      } else {
+        // 'void' mode: if out of bounds, return -2 so caller knows particle falls off screen
+        if (x < 0 || x >= WIDTH || y < 0 || y >= HEIGHT) return -2;
+        return y * WIDTH + x;
+      }
+    }
+
+    function addAirImpulse(px, py, dvx, dvy, dp) {
+      const ax = (px >> 2);
+      const ay = (py >> 2);
+      if (ax < 0 || ax >= AIR_W || ay < 0 || ay >= AIR_H) return;
+      const aIdx = ay * AIR_W + ax;
+      if (airBlocked[aIdx]) return;
+      airVx[aIdx] = Math.max(-12, Math.min(12, airVx[aIdx] + dvx));
+      airVy[aIdx] = Math.max(-12, Math.min(12, airVy[aIdx] + dvy));
+      airP[aIdx]  = Math.max(-25, Math.min(25, airP[aIdx] + dp));
+    }
+
+    // --- 7. Aerodynamic Navier-Stokes Solver (Pressure & Velocity Field) ---
+    function stepAerodynamics() {
+      // 1. Mark air cells blocked by solid walls/glass/metal
+      for (let ay = 0; ay < AIR_H; ay++) {
+        const py = (ay << 2) + 2;
+        const rowOff = py * WIDTH;
+        for (let ax = 0; ax < AIR_W; ax++) {
+          const px = (ax << 2) + 2;
+          const t = gridType[rowOff + px];
+          airBlocked[ay * AIR_W + ax] = (t === EL_WALL || t === EL_METAL || t === EL_GLASS) ? 1 : 0;
+        }
+      }
+
+      // 2. Update pressure from velocity divergence & diffuse
+      for (let ay = 1; ay < AIR_H - 1; ay++) {
+        const row = ay * AIR_W;
+        for (let ax = 1; ax < AIR_W - 1; ax++) {
+          const idx = row + ax;
+          if (airBlocked[idx]) {
+            airPNext[idx] = 0;
+            airVxNext[idx] = 0;
+            airVyNext[idx] = 0;
+            continue;
+          }
+          const div = (airVx[idx + 1] - airVx[idx - 1] + airVy[idx + AIR_W] - airVy[idx - AIR_W]) * 0.25;
+          const avgP = (airP[idx] * 2 + airP[idx - 1] + airP[idx + 1] + airP[idx - AIR_W] + airP[idx + AIR_W]) / 6;
+          airPNext[idx] = (avgP - div * 0.45) * 0.96;
+        }
+      }
+
+      // 3. Accelerate velocity along pressure gradient & dampen
+      for (let ay = 1; ay < AIR_H - 1; ay++) {
+        const row = ay * AIR_W;
+        for (let ax = 1; ax < AIR_W - 1; ax++) {
+          const idx = row + ax;
+          if (airBlocked[idx]) continue;
+          const gradX = (airPNext[idx + 1] - airPNext[idx - 1]) * 0.28;
+          const gradY = (airPNext[idx + AIR_W] - airPNext[idx - AIR_W]) * 0.28;
+
+          const avgVx = (airVx[idx] * 3 + airVx[idx - 1] + airVx[idx + 1] + airVx[idx - AIR_W] + airVx[idx + AIR_W]) / 7;
+          const avgVy = (airVy[idx] * 3 + airVy[idx - 1] + airVy[idx + 1] + airVy[idx - AIR_W] + airVy[idx + AIR_W]) / 7;
+
+          airVxNext[idx] = (avgVx - gradX) * 0.965;
+          airVyNext[idx] = (avgVy - gradY) * 0.965;
+        }
+      }
+
+      airP.set(airPNext);
+      airVx.set(airVxNext);
+      airVy.set(airVyNext);
+    }
+
+    // --- 8. Cell State Helpers ---
+    function setCell(idx, type, customLife, customMeta) {
+      gridType[idx]  = type;
+      gridVx[idx]    = 0;
+      gridVy[idx]    = 0;
+      gridStamp[idx] = frameParity;
+      gridShade[idx] = ((Math.random() * 22) | 0) - 11;
+      gridMeta[idx]  = customMeta !== undefined ? customMeta : 0;
+
+      if (customLife !== undefined) {
+        gridLife[idx] = customLife;
+        return;
+      }
+
+      switch (type) {
+        case EL_FIRE:
+          gridLife[idx] = 28 + ((Math.random() * 36) | 0);
+          break;
+        case EL_STEAM:
+        case EL_GAS:
+          gridLife[idx] = 140 + ((Math.random() * 140) | 0);
+          break;
+        case EL_BUBBLE:
+          gridLife[idx] = 180 + ((Math.random() * 150) | 0);
+          break;
+        case EL_ACID:
+          gridLife[idx] = 4;
+          break;
+        case EL_SEED:
+          gridLife[idx] = 0;
+          break;
+        case EL_CLONE:
+          gridLife[idx] = 0;
+          break;
+        case EL_WIND:
+          gridLife[idx] = 18 + ((Math.random() * 14) | 0);
+          break;
+        case EL_PLANT:
+          gridLife[idx] = Math.random() < 0.22 ? 1 : 0;
+          break;
+        case EL_PETAL:
+          gridLife[idx] = (Math.random() * FIREWORK_COLORS.length) | 0;
+          break;
+        case EL_THUNDER:
+          gridLife[idx] = 8 + ((Math.random() * 8) | 0);
+          break;
+        case EL_LASER:
+          gridLife[idx] = 45;
+          if (customMeta === undefined) gridMeta[idx] = 0; // Angle index 0..7
+          break;
+        case EL_FIREWORK:
+          gridLife[idx] = 0; // 0 = unlit powder, >0 = ascending rocket timer
+          gridMeta[idx] = (Math.random() * FIREWORK_COLORS.length) | 0;
+          break;
+        case EL_ANT:
+          gridLife[idx] = 240 + ((Math.random() * 200) | 0);
+          gridMeta[idx] = (Math.random() * 4) | 0; // Direction 0..3
+          break;
+        case EL_FAN:
+          gridLife[idx] = 10; // dx * 10
+          gridMeta[idx] = 0;  // dy * 10
+          break;
+        default:
+          gridLife[idx] = 0;
+          break;
+      }
+    }
+
+    function clearCell(idx) {
+      gridType[idx]  = EL_EMPTY;
+      gridLife[idx]  = 0;
+      gridMeta[idx]  = 0;
+      gridShade[idx] = 0;
+      gridVx[idx]    = 0;
+      gridVy[idx]    = 0;
+    }
+
+    function swapCells(i1, i2) {
+      const tType  = gridType[i1];
+      const tLife  = gridLife[i1];
+      const tMeta  = gridMeta[i1];
+      const tShade = gridShade[i1];
+      const tVx    = gridVx[i1];
+      const tVy    = gridVy[i1];
+
+      gridType[i1]  = gridType[i2];
+      gridLife[i1]  = gridLife[i2];
+      gridMeta[i1]  = gridMeta[i2];
+      gridShade[i1] = gridShade[i2];
+      gridVx[i1]    = gridVx[i2];
+      gridVy[i1]    = gridVy[i2];
+
+      gridType[i2]  = tType;
+      gridLife[i2]  = tLife;
+      gridMeta[i2]  = tMeta;
+      gridShade[i2] = tShade;
+      gridVx[i2]    = tVx;
+      gridVy[i2]    = tVy;
+
+      gridStamp[i1] = frameParity;
+      gridStamp[i2] = frameParity;
+    }
+
+    function canDisplace(moverIdx, targetIdx) {
+      const targetType = gridType[targetIdx];
+      if (targetType === EL_EMPTY) return true;
+      const moverType = gridType[moverIdx];
+      if (moverType === targetType) return false;
+
+      const targetState = ELEMENTS[targetType].state;
+      if (targetState === STATE_SOLID) return false;
+
+      const moverDensity  = ELEMENTS[moverType].density;
+      const targetDensity = ELEMENTS[targetType].density;
+
+      if (moverDensity > targetDensity && (targetState === STATE_LIQUID || targetState === STATE_GAS || targetState === STATE_ENERGY)) {
+        return Math.random() < 0.5;
+      }
+      return false;
+    }
+
+    // --- 9. Explosions, Firework Bursts & Cluster Bombs ---
+    function triggerExplosion(cx, cy, radius, power, colorIdx) {
+      playSynthSfx('explosion');
+      addAirImpulse(cx, cy, 0, 0, power * 3.2);
+
+      const r2 = radius * radius;
+      const outerR = radius + 7;
+      const outerR2 = outerR * outerR;
+
+      const minY = Math.max(1, cy - outerR);
+      const maxY = Math.min(HEIGHT - 2, cy + outerR);
+      const minX = Math.max(1, cx - outerR);
+      const maxX = Math.min(WIDTH - 2, cx + outerR);
+
+      for (let y = minY; y <= maxY; y++) {
+        const dy = y - cy;
+        const rowOffset = y * WIDTH;
+        for (let x = minX; x <= maxX; x++) {
+          const dx = x - cx;
+          const d2 = dx * dx + dy * dy;
+          if (d2 > outerR2) continue;
+
+          const idx = rowOffset + x;
+          const t = gridType[idx];
+
+          if (t === EL_WALL || t === EL_CLONE || t === EL_FAN) continue;
+          // Metal resists small explosions
+          if (t === EL_METAL && power < 6.5 && Math.random() < 0.85) continue;
+
+          const dist = Math.sqrt(d2) || 1;
+          const nx = dx / dist;
+          const ny = dy / dist;
+
+          // Inject radial velocity into the aerodynamic grid
+          if (((x | y) & 3) === 0) {
+            addAirImpulse(x, y, nx * power * 0.7, ny * power * 0.7, power * 0.5);
+          }
+
+          if (d2 <= r2) {
+            if ((t === EL_C4 || t === EL_GUNPOWDER || t === EL_NITRO || t === EL_BOMB) && (dx !== 0 || dy !== 0) && Math.random() < 0.45) {
+              setCell(idx, EL_FIRE, 62);
+              gridVx[idx] = nx * power;
+              gridVy[idx] = ny * power;
+              continue;
+            }
+
+            if (colorIdx !== undefined) {
+              // Firework colored star burst!
+              if (Math.random() < 0.48) {
+                setCell(idx, EL_PETAL, colorIdx);
+                gridVx[idx] = nx * power * (0.6 + Math.random() * 0.7);
+                gridVy[idx] = ny * power * (0.6 + Math.random() * 0.7);
+              } else if (Math.random() < 0.65) {
+                setCell(idx, EL_FIRE, 40 + ((Math.random() * 24) | 0));
+                gridVx[idx] = nx * power;
+                gridVy[idx] = ny * power;
+              }
+              continue;
+            }
+
+            const roll = Math.random();
+            if (roll < 0.58) {
+              setCell(idx, EL_FIRE, 38 + ((Math.random() * 26) | 0));
+              gridVx[idx] = nx * (power * (0.5 + Math.random() * 0.7));
+              gridVy[idx] = ny * (power * (0.5 + Math.random() * 0.7));
+            } else if (roll < 0.76) {
+              setCell(idx, EL_STEAM, 90 + ((Math.random() * 80) | 0));
+              gridVx[idx] = nx * power * 0.6;
+              gridVy[idx] = ny * power * 0.6;
+            } else {
+              clearCell(idx);
+            }
+          } else {
+            // Shockwave outer ring shatters Glass, Ice, Stone, Plant
+            if (t === EL_GLASS || t === EL_ICE) {
+              if (Math.random() < 0.65) {
+                setCell(idx, t === EL_GLASS ? EL_POWDER : EL_SNOW);
+                gridVx[idx] = nx * power * 0.9;
+                gridVy[idx] = ny * power * 0.9;
+              }
+            } else if (t !== EL_EMPTY && ELEMENTS[t].state !== STATE_SOLID) {
+              const falloff = 1 - (dist - radius) / 7;
+              gridVx[idx] += nx * power * falloff * 1.25;
+              gridVy[idx] += (ny * power * falloff * 1.25) - 0.8;
+            }
+          }
+        }
+      }
+
+      // Push nearby Physics Entities (Fighters & Wheels)
+      for (let i = 0; i < entities.length; i++) {
+        const ent = entities[i];
+        const dx = ent.x - cx;
+        const dy = ent.y - cy;
+        const dist = Math.hypot(dx, dy) || 1;
+        if (dist < outerR * 2.2) {
+          const push = (1 - dist / (outerR * 2.2)) * power * 1.4;
+          ent.vx += (dx / dist) * push;
+          ent.vy += (dy / dist) * push - 1.5;
+        }
+      }
+    }
+
+    // --- 10. Direction Vectors ---
+    const NEIGHBOR_DIRS = [
+      [-1, -1], [0, -1], [1, -1],
+      [-1,  0],          [1,  0],
+      [-1,  1], [0,  1], [1,  1]
+    ];
+
+    // 8 discrete compass directions for Laser & Ant
+    const COMPASS_8 = [
+      [1, 0], [1, 1], [0, 1], [-1, 1],
+      [-1, 0], [-1, -1], [0, -1], [1, -1]
+    ];
+
+    // --- 11. Main Cellular Automata Physics & Chemistry Update Loop ---
+    function stepPhysics() {
+      frameParity = (frameParity + 1) & 255;
+      if (frameParity === 0) frameParity = 1;
+      tickCount++;
+
+      // Step coarse Navier-Stokes aerodynamic grid first
+      stepAerodynamics();
+
+      const gDir = gravityDir; // 1 = down, 0 = zero-G, -1 = up
+      const startY = gDir >= 0 ? HEIGHT - 1 : 0;
+      const endY   = gDir >= 0 ? -1 : HEIGHT;
+      const stepYDir = gDir >= 0 ? -1 : 1;
+
+      for (let y = startY; y !== endY; y += stepYDir) {
+        const leftToRight = ((y + tickCount) & 1) === 0;
+        const rowOffset = y * WIDTH;
+        const airRow = (y >> 2) * AIR_W;
+
+        for (let i = 0; i < WIDTH; i++) {
+          const x = leftToRight ? i : (WIDTH - 1 - i);
+          const idx = rowOffset + x;
+
+          const type = gridType[idx];
+          if (type === EL_EMPTY) continue;
+          if (gridStamp[idx] === frameParity) continue;
+
+          gridStamp[idx] = frameParity;
+          const elemDef = ELEMENTS[type];
+          const elemState = elemDef.state;
+
+          // --- A. Couple Non-Solid Particles to Aerodynamic Air Grid & Kinetic Velocity ---
+          const aIdx = airRow + (x >> 2);
+          const localAirVx = airVx[aIdx];
+          const localAirVy = airVy[aIdx];
+          const localAirP  = airP[aIdx];
+
+          // Shatter Glass if air pressure shockwave is extreme
+          if (type === EL_GLASS && Math.abs(localAirP) > 10.5 && Math.random() < 0.35) {
+            setCell(idx, EL_POWDER);
+            gridVx[idx] = localAirVx * 1.2;
+            gridVy[idx] = localAirVy * 1.2;
+            continue;
+          }
+
+          if (elemState !== STATE_SOLID && type !== EL_LASER) {
+            // Apply aerodynamic wind acceleration inversely proportional to density
+            const aeroFactor = elemState === STATE_GAS || elemState === STATE_ENERGY ? 0.22 : 0.08;
+            gridVx[idx] += localAirVx * aeroFactor;
+            gridVy[idx] += localAirVy * aeroFactor;
+
+            // Zero-G slight drift
+            if (gDir === 0 && Math.random() < 0.04) {
+              gridVx[idx] += (Math.random() - 0.5) * 0.25;
+              gridVy[idx] += (Math.random() - 0.5) * 0.25;
+            }
+
+            const vx = gridVx[idx];
+            const vy = gridVy[idx];
+            const speedSq = vx * vx + vy * vy;
+
+            // Nitroglycerin detonates on high-speed impact!
+            if (type === EL_NITRO && (speedSq > 4.5 || Math.abs(localAirP) > 8.0)) {
+              // Check if hitting a neighbor
+              for (let d = 0; d < 4; d++) {
+                const nIdx = resolveCoords(x + NEIGHBOR_DIRS[d][0], y + NEIGHBOR_DIRS[d][1]);
+                if (nIdx >= 0 && gridType[nIdx] !== EL_EMPTY && gridType[nIdx] !== EL_NITRO) {
+                  triggerExplosion(x, y, 16, 6.2);
+                  break;
+                }
+              }
+              if (gridType[idx] !== EL_NITRO) continue;
+            }
+
+            if (Math.abs(vx) > 0.14 || Math.abs(vy) > 0.14) {
+              const sx = vx > 0 ? (Math.random() < Math.min(1, vx) ? 1 : 0) : (Math.random() < Math.min(1, -vx) ? -1 : 0);
+              const sy = vy > 0 ? (Math.random() < Math.min(1, vy) ? 1 : 0) : (Math.random() < Math.min(1, -vy) ? -1 : 0);
+
+              gridVx[idx] *= 0.91;
+              gridVy[idx] *= 0.91;
+              if (Math.abs(gridVx[idx]) < 0.06) gridVx[idx] = 0;
+              if (Math.abs(gridVy[idx]) < 0.06) gridVy[idx] = 0;
+
+              if (sx !== 0 || sy !== 0) {
+                const tIdx = resolveCoords(x + sx, y + sy);
+                if (tIdx === -2) {
+                  clearCell(idx);
+                  continue;
+                } else if (tIdx >= 0) {
+                  if (gridType[tIdx] === EL_EMPTY) {
+                    swapCells(idx, tIdx);
+                    continue;
+                  } else if (gridType[tIdx] !== EL_WALL) {
+                    gridVx[tIdx] += vx * 0.45;
+                    gridVy[tIdx] += vy * 0.45;
+                    gridVx[idx] *= -0.35;
+                    gridVy[idx] *= -0.35;
+                  }
+                }
+              }
+            }
+          }
+
+          // --- B. Element-Specific Physics, Chemistry & Contraption Rules ---
+          switch (type) {
+            case EL_POWDER:
+            case EL_GUNPOWDER:
+            case EL_SEED:
+            case EL_SNOW:
+            case EL_SALT:
+            case EL_STONE:
+            case EL_FIREWORK:
+            case EL_BOMB: {
+              // 1. Bomb: detonates on contact with any non-empty, non-bomb neighbor!
+              if (type === EL_BOMB) {
+                let exploded = false;
+                for (let d = 0; d < 8; d++) {
+                  const nIdx = resolveCoords(x + NEIGHBOR_DIRS[d][0], y + NEIGHBOR_DIRS[d][1]);
+                  if (nIdx >= 0) {
+                    const nt = gridType[nIdx];
+                    if (nt !== EL_EMPTY && nt !== EL_BOMB && nt !== EL_WIND) {
+                      triggerExplosion(x, y, 12, 5.0);
+                      exploded = true;
+                      break;
+                    }
+                  }
+                }
+                if (exploded) continue;
+              }
+
+              // 2. Ignited Firework: rockets upward and explodes into colored stars!
+              if (type === EL_FIREWORK && gridLife[idx] > 0) {
+                gridLife[idx]--;
+                addAirImpulse(x, y, 0, 1.2, 0.4);
+                // Leave spark trail below
+                const trailIdx = resolveCoords(x, y + 1);
+                if (trailIdx >= 0 && gridType[trailIdx] === EL_EMPTY && Math.random() < 0.65) {
+                  setCell(trailIdx, EL_FIRE, 18);
+                }
+                if (gridLife[idx] <= 0 || y <= 12) {
+                  triggerExplosion(x, y, 14, 4.8, gridMeta[idx]);
+                  continue;
+                }
+                // Rocket upward 2 cells per tick
+                const upx = x + (Math.random() < 0.3 ? (Math.random() < 0.5 ? -1 : 1) : 0);
+                const upIdx = resolveCoords(upx, y - 1);
+                if (upIdx >= 0 && (gridType[upIdx] === EL_EMPTY || gridType[upIdx] === EL_STEAM)) {
+                  swapCells(idx, upIdx);
+                } else {
+                  triggerExplosion(x, y, 14, 4.8, gridMeta[idx]);
+                }
+                continue;
+              }
+
+              // 3. Snow: gentle flutter, melts near heat, compacts into Ice under heavy pile
+              if (type === EL_SNOW) {
+                if (Math.random() < 0.35) gridVx[idx] += (Math.random() - 0.5) * 0.35;
+                for (let d = 0; d < 8; d++) {
+                  const nIdx = resolveCoords(x + NEIGHBOR_DIRS[d][0], y + NEIGHBOR_DIRS[d][1]);
+                  if (nIdx >= 0) {
+                    const nt = gridType[nIdx];
+                    if (nt === EL_FIRE || nt === EL_MAGMA || nt === EL_STEAM || nt === EL_SALT || nt === EL_LASER) {
+                      setCell(idx, EL_WATER);
+                      break;
+                    }
+                  }
+                }
+                if (gridType[idx] !== EL_SNOW) continue;
+                if (Math.abs(localAirP) > 9.0 && Math.random() < 0.15) {
+                  setCell(idx, EL_ICE);
+                  continue;
+                }
+                if (Math.random() < 0.25) continue;
+              }
+
+              // 4. Salt: dissolves in Water -> Saltwater, melts Ice -> Water
+              if (type === EL_SALT) {
+                let dissolved = false;
+                for (let d = 0; d < 8; d++) {
+                  const nIdx = resolveCoords(x + NEIGHBOR_DIRS[d][0], y + NEIGHBOR_DIRS[d][1]);
+                  if (nIdx >= 0) {
+                    const nt = gridType[nIdx];
+                    if (nt === EL_WATER) {
+                      setCell(nIdx, EL_SALTWATER);
+                      clearCell(idx);
+                      dissolved = true;
+                      break;
+                    } else if (nt === EL_ICE || nt === EL_SNOW) {
+                      setCell(nIdx, EL_SALTWATER);
+                      clearCell(idx);
+                      dissolved = true;
+                      break;
+                    }
+                  }
+                }
+                if (dissolved) continue;
+              }
+
+              // 5. Seed: absorbs Water and grows branching Plant/Wood + Petal blossoms!
+              if (type === EL_SEED) {
+                if (gridLife[idx] > 0) {
+                  const energy = gridLife[idx];
+                  setCell(idx, EL_PLANT);
+                  const dirX = Math.random() < 0.42 ? (Math.random() < 0.5 ? -1 : 1) : 0;
+                  const gIdx = resolveCoords(x + dirX, y - 1);
+                  if (gIdx >= 0 && (gridType[gIdx] === EL_EMPTY || gridType[gIdx] === EL_WATER)) {
+                    if (energy > 1) {
+                      setCell(gIdx, EL_SEED, energy - 1);
+                    } else {
+                      // Bloom colorful Petal flower at tip!
+                      setCell(gIdx, EL_PETAL);
+                      for (let pd = 0; pd < 4; pd++) {
+                        const pIdx = resolveCoords(x + dirX + NEIGHBOR_DIRS[pd][0], y - 1 + NEIGHBOR_DIRS[pd][1]);
+                        if (pIdx >= 0 && gridType[pIdx] === EL_EMPTY && Math.random() < 0.65) {
+                          setCell(pIdx, EL_PETAL);
+                        }
+                      }
+                    }
+                  }
+                  if (energy > 3 && Math.random() < 0.3) {
+                    const bIdx = resolveCoords(x + (Math.random() < 0.5 ? -1 : 1), y);
+                    if (bIdx >= 0 && gridType[bIdx] === EL_EMPTY) {
+                      setCell(bIdx, EL_PLANT);
+                    }
+                  }
+                  continue;
+                } else {
+                  let hydrated = false;
+                  for (let d = 0; d < 8; d++) {
+                    const nIdx = resolveCoords(x + NEIGHBOR_DIRS[d][0], y + NEIGHBOR_DIRS[d][1]);
+                    if (nIdx >= 0 && (gridType[nIdx] === EL_WATER || gridType[nIdx] === EL_SALTWATER)) {
+                      clearCell(nIdx);
+                      gridLife[idx] = 7 + ((Math.random() * 10) | 0);
+                      hydrated = true;
+                      break;
+                    }
+                  }
+                  if (hydrated) continue;
+                }
+              }
+
+              // 6. Stone / Concrete: structural arch friction (doesn't roll diagonally if supported on both sides)
+              if (type === EL_STONE && gDir !== 0) {
+                const belowIdx = resolveCoords(x, y + gDir);
+                if (belowIdx === -2) { clearCell(idx); continue; }
+                if (belowIdx >= 0 && canDisplace(idx, belowIdx)) {
+                  swapCells(idx, belowIdx);
+                  continue;
+                }
+                // Arch-locking check: if touching another stone horizontally, resist diagonal slide
+                const leftIdx = resolveCoords(x - 1, y);
+                const rightIdx = resolveCoords(x + 1, y);
+                if (leftIdx >= 0 && rightIdx >= 0 && gridType[leftIdx] === EL_STONE && gridType[rightIdx] === EL_STONE) {
+                  continue;
+                }
+              }
+
+              // Standard Granular Gravity Movement
+              if (gDir !== 0) {
+                const belowIdx = resolveCoords(x, y + gDir);
+                if (belowIdx === -2) { clearCell(idx); continue; }
+                if (belowIdx >= 0 && canDisplace(idx, belowIdx)) {
+                  swapCells(idx, belowIdx);
+                  continue;
+                }
+                const dir1 = Math.random() < 0.5 ? -1 : 1;
+                const dir2 = -dir1;
+                const diag1 = resolveCoords(x + dir1, y + gDir);
+                if (diag1 >= 0 && canDisplace(idx, diag1)) {
+                  swapCells(idx, diag1);
+                  continue;
+                }
+                const diag2 = resolveCoords(x + dir2, y + gDir);
+                if (diag2 >= 0 && canDisplace(idx, diag2)) {
+                  swapCells(idx, diag2);
+                  continue;
+                }
+              }
+              break;
+            }
+
+            case EL_WATER:
+            case EL_SALTWATER:
+            case EL_OIL:
+            case EL_NITRO:
+            case EL_MERCURY:
+            case EL_SOAPY: {
+              // Soapy water whips into Bubbles when wind speed is high, and cures Virus!
+              if (type === EL_SOAPY) {
+                if (Math.hypot(localAirVx, localAirVy) > 1.8 && Math.random() < 0.25) {
+                  const upIdx = resolveCoords(x, y - 1);
+                  if (upIdx >= 0 && gridType[upIdx] === EL_EMPTY) {
+                    setCell(upIdx, EL_BUBBLE);
+                  }
+                }
+                for (let d = 0; d < 8; d++) {
+                  const nIdx = resolveCoords(x + NEIGHBOR_DIRS[d][0], y + NEIGHBOR_DIRS[d][1]);
+                  if (nIdx >= 0 && gridType[nIdx] === EL_VIRUS) {
+                    setCell(nIdx, EL_WATER);
+                  }
+                }
+              }
+
+              // Liquid gravity & density stratification
+              if (gDir !== 0) {
+                const belowIdx = resolveCoords(x, y + gDir);
+                if (belowIdx === -2) { clearCell(idx); continue; }
+                if (belowIdx >= 0 && canDisplace(idx, belowIdx)) {
+                  swapCells(idx, belowIdx);
+                  continue;
+                }
+                const dir = Math.random() < 0.5 ? -1 : 1;
+                const d1 = resolveCoords(x + dir, y + gDir);
+                if (d1 >= 0 && canDisplace(idx, d1)) {
+                  swapCells(idx, d1);
+                  continue;
+                }
+                const d2 = resolveCoords(x - dir, y + gDir);
+                if (d2 >= 0 && canDisplace(idx, d2)) {
+                  swapCells(idx, d2);
+                  continue;
+                }
+              }
+
+              // Horizontal liquid dispersion
+              const spread = type === EL_MERCURY ? 5 : 4;
+              const hDir = Math.random() < 0.5 ? -1 : 1;
+              for (let step = 1; step <= spread; step++) {
+                const tIdx = resolveCoords(x + hDir * step, y);
+                if (tIdx === -2) { clearCell(idx); break; }
+                if (tIdx < 0) break;
+                if (gridType[tIdx] === EL_EMPTY || canDisplace(idx, tIdx)) {
+                  swapCells(idx, tIdx);
+                  break;
+                } else if (gridType[tIdx] !== type) {
+                  break;
+                }
+              }
+              break;
+            }
+
+            case EL_MAGMA: {
+              addAirImpulse(x, y, 0, -0.08, 0.05);
+              let transformed = false;
+              for (let d = 0; d < 8; d++) {
+                const nIdx = resolveCoords(x + NEIGHBOR_DIRS[d][0], y + NEIGHBOR_DIRS[d][1]);
+                if (nIdx < 0) continue;
+                const nt = gridType[nIdx];
+                if (nt === EL_EMPTY || nt === EL_MAGMA || nt === EL_WALL) continue;
+
+                if (nt === EL_WATER || nt === EL_SALTWATER) {
+                  setCell(nIdx, EL_STEAM);
+                  setCell(idx, EL_STONE);
+                  playSynthSfx('sizzle');
+                  transformed = true;
+                  break;
+                }
+                if (nt === EL_POWDER && Math.random() < 0.06) {
+                  // Vitrify Sand into Glass!
+                  setCell(nIdx, EL_GLASS);
+                  continue;
+                }
+                if (nt === EL_STONE && Math.random() < 0.015) {
+                  setCell(nIdx, EL_MAGMA);
+                  continue;
+                }
+                if (nt === EL_METAL && Math.random() < 0.01) {
+                  setCell(nIdx, EL_MAGMA);
+                  continue;
+                }
+                if (nt === EL_ICE || nt === EL_SNOW) {
+                  setCell(nIdx, EL_WATER);
+                  if (Math.random() < 0.25) setCell(idx, EL_STONE);
+                  transformed = true;
+                  break;
+                }
+                if (nt === EL_GUNPOWDER || nt === EL_BOMB) {
+                  triggerExplosion(x + NEIGHBOR_DIRS[d][0], y + NEIGHBOR_DIRS[d][1], 11, 4.5);
+                  transformed = true;
+                  break;
+                }
+                if (nt === EL_NITRO) {
+                  triggerExplosion(x + NEIGHBOR_DIRS[d][0], y + NEIGHBOR_DIRS[d][1], 16, 6.2);
+                  transformed = true;
+                  break;
+                }
+                if (nt === EL_C4) {
+                  triggerExplosion(x + NEIGHBOR_DIRS[d][0], y + NEIGHBOR_DIRS[d][1], 22, 7.8);
+                  transformed = true;
+                  break;
+                }
+                if (nt === EL_FIREWORK) {
+                  gridLife[nIdx] = 35 + ((Math.random() * 20) | 0);
+                  continue;
+                }
+                if (ELEMENTS[nt].flammable > 0 && Math.random() < ELEMENTS[nt].flammable) {
+                  setCell(nIdx, EL_FIRE, 48);
+                }
+              }
+              if (transformed) continue;
+
+              if (Math.random() < 0.42) continue;
+              if (gDir !== 0) {
+                const belowIdx = resolveCoords(x, y + gDir);
+                if (belowIdx === -2) { clearCell(idx); continue; }
+                if (belowIdx >= 0 && canDisplace(idx, belowIdx)) {
+                  swapCells(idx, belowIdx);
+                  continue;
+                }
+                const dir = Math.random() < 0.5 ? -1 : 1;
+                const d1 = resolveCoords(x + dir, y + gDir);
+                if (d1 >= 0 && canDisplace(idx, d1)) {
+                  swapCells(idx, d1);
+                  continue;
+                }
+              }
+              break;
+            }
+
+            case EL_TORCH: {
+              // Continuous flame emitter; extinguished only if touching Water
+              for (let d = 0; d < 8; d++) {
+                const nIdx = resolveCoords(x + NEIGHBOR_DIRS[d][0], y + NEIGHBOR_DIRS[d][1]);
+                if (nIdx >= 0) {
+                  const nt = gridType[nIdx];
+                  if (nt === EL_WATER || nt === EL_SALTWATER) {
+                    setCell(idx, EL_STONE);
+                    break;
+                  } else if (nt === EL_EMPTY && Math.random() < 0.35) {
+                    setCell(nIdx, EL_FIRE, 35);
+                  }
+                }
+              }
+              break;
+            }
+
+            case EL_FIRE: {
+              gridLife[idx]--;
+              addAirImpulse(x, y, (Math.random() - 0.5) * 0.15, -0.22, 0.08);
+              if (gridLife[idx] <= 0) {
+                if (Math.random() < 0.14) {
+                  setCell(idx, EL_STEAM, 50 + ((Math.random() * 40) | 0));
+                } else {
+                  clearCell(idx);
+                }
+                continue;
+              }
+
+              let extinguished = false;
+              for (let d = 0; d < 8; d++) {
+                const nx = x + NEIGHBOR_DIRS[d][0];
+                const ny = y + NEIGHBOR_DIRS[d][1];
+                const nIdx = resolveCoords(nx, ny);
+                if (nIdx < 0) continue;
+                const nt = gridType[nIdx];
+                if (nt === EL_EMPTY || nt === EL_FIRE) continue;
+
+                if (nt === EL_WATER || nt === EL_SALTWATER || nt === EL_SOAPY) {
+                  clearCell(idx);
+                  if (Math.random() < 0.45) {
+                    if (nt === EL_SALTWATER && Math.random() < 0.5) {
+                      setCell(nIdx, EL_SALT);
+                    } else {
+                      setCell(nIdx, EL_STEAM);
+                    }
+                    playSynthSfx('sizzle');
+                  }
+                  extinguished = true;
+                  break;
+                }
+                if (nt === EL_ICE || nt === EL_SNOW) {
+                  setCell(nIdx, EL_WATER);
+                  clearCell(idx);
+                  extinguished = true;
+                  break;
+                }
+                if (nt === EL_POWDER && gridLife[idx] > 48 && Math.random() < 0.025) {
+                  setCell(nIdx, EL_GLASS);
+                  continue;
+                }
+                if (nt === EL_GUNPOWDER || nt === EL_BOMB) {
+                  triggerExplosion(nx, ny, 10, 4.4);
+                  extinguished = true;
+                  break;
+                }
+                if (nt === EL_NITRO) {
+                  triggerExplosion(nx, ny, 16, 6.2);
+                  extinguished = true;
+                  break;
+                }
+                if (nt === EL_C4) {
+                  triggerExplosion(nx, ny, 22, 7.8);
+                  extinguished = true;
+                  break;
+                }
+                if (nt === EL_FIREWORK && gridLife[nIdx] === 0) {
+                  gridLife[nIdx] = 32 + ((Math.random() * 22) | 0);
+                  continue;
+                }
+                if (ELEMENTS[nt].flammable > 0 && Math.random() < ELEMENTS[nt].flammable * 0.55) {
+                  setCell(nIdx, EL_FIRE, nt === EL_GAS || nt === EL_OIL ? 58 : 42);
+                  if (nt === EL_GAS) addAirImpulse(nx, ny, 0, -0.8, 1.4);
+                }
+              }
+              if (extinguished) continue;
+
+              const fx = x + ((Math.random() * 3) | 0) - 1;
+              const fy = y - (Math.random() < 0.82 ? 1 : 0);
+              const fIdx = resolveCoords(fx, fy);
+              if (fIdx === -2) { clearCell(idx); continue; }
+              if (fIdx >= 0 && gridType[fIdx] === EL_EMPTY) {
+                swapCells(idx, fIdx);
+              }
+              break;
+            }
+
+            case EL_THUNDER: {
+              // High-voltage lightning bolt & electrical conductor propagation
+              gridLife[idx]--;
+              if (gridLife[idx] <= 0) {
+                clearCell(idx);
+                continue;
+              }
+
+              // Check neighbors for conductors (Metal, Mercury, Saltwater, Water) or targets
+              let conducted = false;
+              for (let d = 0; d < 8; d++) {
+                const nx = x + NEIGHBOR_DIRS[d][0];
+                const ny = y + NEIGHBOR_DIRS[d][1];
+                const nIdx = resolveCoords(nx, ny);
+                if (nIdx < 0) continue;
+                const nt = gridType[nIdx];
+
+                if (nt === EL_METAL || nt === EL_MERCURY || nt === EL_SALTWATER) {
+                  // Propagate electric current along conductive paths without destroying Metal/Mercury
+                  for (let c = 0; c < 8; c++) {
+                    const cx2 = nx + NEIGHBOR_DIRS[c][0] * 2;
+                    const cy2 = ny + NEIGHBOR_DIRS[c][1] * 2;
+                    const cIdx = resolveCoords(cx2, cy2);
+                    if (cIdx >= 0 && gridType[cIdx] === EL_EMPTY && Math.random() < 0.45) {
+                      setCell(cIdx, EL_THUNDER, 6);
+                      conducted = true;
+                    } else if (cIdx >= 0 && (gridType[cIdx] === EL_C4 || gridType[cIdx] === EL_NITRO || gridType[cIdx] === EL_GUNPOWDER)) {
+                      triggerExplosion(cx2, cy2, gridType[cIdx] === EL_C4 ? 22 : 13, 6.5);
+                      conducted = true;
+                    }
+                  }
+                } else if (nt === EL_POWDER) {
+                  // Fulgurite: Thunder instantly vitrifies Sand into Glass!
+                  setCell(nIdx, EL_GLASS);
+                } else if (nt === EL_C4 || nt === EL_NITRO || nt === EL_GUNPOWDER || nt === EL_BOMB) {
+                  triggerExplosion(nx, ny, nt === EL_C4 ? 22 : 14, 6.5);
+                  break;
+                } else if (ELEMENTS[nt] && ELEMENTS[nt].flammable > 0) {
+                  setCell(nIdx, EL_FIRE, 52);
+                }
+              }
+
+              // Propagate jagged bolt downward through empty air
+              if (!conducted && y < HEIGHT - 2) {
+                const bx = x + ((Math.random() * 5) | 0) - 2;
+                const by = y + 1 + ((Math.random() * 2) | 0);
+                const bIdx = resolveCoords(bx, by);
+                if (bIdx >= 0 && gridType[bIdx] === EL_EMPTY) {
+                  setCell(bIdx, EL_THUNDER, gridLife[idx] - 1);
+                }
+              }
+              break;
+            }
+
+            case EL_LASER: {
+              // Coherent photon ray advancing rapidly along its compass direction (gridMeta 0..7)
+              gridLife[idx]--;
+              if (gridLife[idx] <= 0) {
+                clearCell(idx);
+                continue;
+              }
+              const dirIdx = ((gridMeta[idx] % 8) + 8) % 8;
+              const dirVec = COMPASS_8[dirIdx];
+              const lx = x + dirVec[0];
+              const ly = y + dirVec[1];
+              const lIdx = resolveCoords(lx, ly);
+              if (lIdx < 0) {
+                clearCell(idx);
+                continue;
+              }
+              const lt = gridType[lIdx];
+              if (lt === EL_EMPTY || lt === EL_GLASS || lt === EL_WATER) {
+                // Pass through Glass or Water! If Empty, spawn leading laser pixel
+                if (lt === EL_EMPTY) {
+                  setCell(lIdx, EL_LASER, gridLife[idx], dirIdx);
+                } else {
+                  // Tunnel through glass/water
+                  const beyondIdx = resolveCoords(lx + dirVec[0], ly + dirVec[1]);
+                  if (beyondIdx >= 0 && gridType[beyondIdx] === EL_EMPTY) {
+                    setCell(beyondIdx, EL_LASER, gridLife[idx] - 1, dirIdx);
+                  }
+                }
+              } else if (lt === EL_METAL) {
+                // Reflect off Metal mirror!
+                const reflectedDir = (dirIdx + 2) % 8;
+                const rVec = COMPASS_8[reflectedDir];
+                const rIdx = resolveCoords(x + rVec[0], y + rVec[1]);
+                if (rIdx >= 0 && gridType[rIdx] === EL_EMPTY) {
+                  setCell(rIdx, EL_LASER, gridLife[idx] - 1, reflectedDir);
+                }
+              } else if (lt === EL_C4 || lt === EL_NITRO || lt === EL_GUNPOWDER || lt === EL_BOMB) {
+                triggerExplosion(lx, ly, lt === EL_C4 ? 22 : 12, 6.0);
+              } else if (lt !== EL_WALL && lt !== EL_CLONE) {
+                // Vaporize / ignite target
+                setCell(lIdx, EL_FIRE, 45);
+              }
+              break;
+            }
+
+            case EL_ACID: {
+              let dissolved = false;
+              const checkOrder = [[0, 1], [-1, 1], [1, 1], [-1, 0], [1, 0], [0, -1]];
+              for (let c = 0; c < checkOrder.length; c++) {
+                const nIdx = resolveCoords(x + checkOrder[c][0], y + checkOrder[c][1]);
+                if (nIdx < 0) continue;
+                const nt = gridType[nIdx];
+                if (nt !== EL_EMPTY && nt !== EL_ACID && ELEMENTS[nt].corrodible) {
+                  if (Math.random() < 0.38) {
+                    playSynthSfx('sizzle');
+                    if (Math.random() < 0.3) {
+                      setCell(nIdx, EL_GAS, 70);
+                    } else {
+                      clearCell(nIdx);
+                    }
+                    gridLife[idx]--;
+                    if (gridLife[idx] <= 0) clearCell(idx);
+                    dissolved = true;
+                    break;
+                  }
+                }
+              }
+              if (dissolved) continue;
+
+              if (gDir !== 0) {
+                const belowIdx = resolveCoords(x, y + gDir);
+                if (belowIdx === -2) { clearCell(idx); continue; }
+                if (belowIdx >= 0 && canDisplace(idx, belowIdx)) {
+                  swapCells(idx, belowIdx);
+                  continue;
+                }
+                const dir = Math.random() < 0.5 ? -1 : 1;
+                const d1 = resolveCoords(x + dir, y + gDir);
+                if (d1 >= 0 && canDisplace(idx, d1)) {
+                  swapCells(idx, d1);
+                  continue;
+                }
+              }
+              const aDir = Math.random() < 0.5 ? -1 : 1;
+              const hIdx = resolveCoords(x + aDir, y);
+              if (hIdx >= 0 && gridType[hIdx] === EL_EMPTY) {
+                swapCells(idx, hIdx);
+              }
+              break;
+            }
+
+            case EL_STEAM:
+            case EL_GAS:
+            case EL_BUBBLE: {
+              gridLife[idx]--;
+              if (gridLife[idx] <= 0) {
+                if (type === EL_BUBBLE && Math.random() < 0.25) {
+                  setCell(idx, EL_SOAPY);
+                } else if (type === EL_STEAM && y < 22 && Math.random() < 0.08) {
+                  setCell(idx, EL_CLOUD, 300);
+                } else {
+                  clearCell(idx);
+                }
+                continue;
+              }
+
+              if (type === EL_STEAM) {
+                for (let d = 0; d < 4; d++) {
+                  const nIdx = resolveCoords(x + NEIGHBOR_DIRS[d][0], y + NEIGHBOR_DIRS[d][1]);
+                  if (nIdx >= 0 && gridType[nIdx] === EL_ICE && Math.random() < 0.09) {
+                    setCell(idx, EL_WATER);
+                    break;
+                  }
+                }
+                if (gridType[idx] !== EL_STEAM) continue;
+              }
+
+              const gx = x + ((Math.random() * 3) | 0) - 1;
+              const gy = y - (Math.random() < 0.72 ? gDir || 1 : 0);
+              const gIdx = resolveCoords(gx, gy);
+              if (gIdx === -2) { clearCell(idx); continue; }
+              if (gIdx >= 0 && (gridType[gIdx] === EL_EMPTY || gridType[gIdx] === EL_WATER)) {
+                swapCells(idx, gIdx);
+              }
+              break;
+            }
+
+            case EL_CLOUD: {
+              // Drifts in upper atmosphere and precipitates Rain, Snow, or Thunder
+              if (y > 42 && Math.random() < 0.45) {
+                const upIdx = resolveCoords(x + ((Math.random() * 3) | 0) - 1, y - 1);
+                if (upIdx >= 0 && gridType[upIdx] === EL_EMPTY) {
+                  swapCells(idx, upIdx);
+                  continue;
+                }
+              } else if (Math.random() < 0.25) {
+                const driftIdx = resolveCoords(x + (Math.random() < 0.55 ? 1 : -1), y);
+                if (driftIdx >= 0 && gridType[driftIdx] === EL_EMPTY) {
+                  swapCells(idx, driftIdx);
+                }
+              }
+              // Precipitate weather below cloud
+              if (Math.random() < 0.004) {
+                const dropIdx = resolveCoords(x, y + 1);
+                if (dropIdx >= 0 && gridType[dropIdx] === EL_EMPTY) {
+                  const roll = Math.random();
+                  if (roll < 0.72) setCell(dropIdx, EL_WATER);
+                  else if (roll < 0.96) setCell(dropIdx, EL_SNOW);
+                  else {
+                    setCell(dropIdx, EL_THUNDER, 14);
+                    playSynthSfx('thunder');
+                  }
+                }
+              }
+              break;
+            }
+
+            case EL_VINE: {
+              // Creeping vine: drinks adjacent water to drape downward and cling to walls
+              if (Math.random() < 0.06) {
+                for (let d = 0; d < 8; d++) {
+                  const nIdx = resolveCoords(x + NEIGHBOR_DIRS[d][0], y + NEIGHBOR_DIRS[d][1]);
+                  if (nIdx >= 0 && gridType[nIdx] === EL_WATER) {
+                    clearCell(nIdx);
+                    const growIdx = resolveCoords(x + ((Math.random() * 3) | 0) - 1, y + 1);
+                    if (growIdx >= 0 && gridType[growIdx] === EL_EMPTY) {
+                      setCell(growIdx, EL_VINE);
+                    }
+                    break;
+                  }
+                }
+              }
+              break;
+            }
+
+            case EL_ANT: {
+              // Autonomous tunneling insect: walks & digs tunnels through Powder, Plant, Stone
+              gridLife[idx]--;
+              if (gridLife[idx] <= 0) {
+                clearCell(idx);
+                continue;
+              }
+              // Fall if in mid-air with no neighboring support
+              let hasSupport = false;
+              for (let d = 0; d < 8; d++) {
+                const nIdx = resolveCoords(x + NEIGHBOR_DIRS[d][0], y + NEIGHBOR_DIRS[d][1]);
+                if (nIdx >= 0 && gridType[nIdx] !== EL_EMPTY && gridType[nIdx] !== EL_ANT) {
+                  hasSupport = true;
+                  break;
+                }
+              }
+              if (!hasSupport) {
+                const fallIdx = resolveCoords(x, y + 1);
+                if (fallIdx >= 0 && gridType[fallIdx] === EL_EMPTY) {
+                  swapCells(idx, fallIdx);
+                }
+                continue;
+              }
+              // Excavate & walk
+              if (Math.random() < 0.45) {
+                const dir = (gridMeta[idx] + (Math.random() < 0.25 ? (Math.random() < 0.5 ? 1 : 3) : 0)) & 3;
+                gridMeta[idx] = dir;
+                const dVec = [[1, 0], [0, 1], [-1, 0], [0, -1]][dir];
+                const tIdx = resolveCoords(x + dVec[0], y + dVec[1]);
+                if (tIdx >= 0) {
+                  const tt = gridType[tIdx];
+                  if (tt === EL_EMPTY) {
+                    swapCells(idx, tIdx);
+                  } else if (tt === EL_POWDER || tt === EL_PLANT || tt === EL_SEED || tt === EL_STONE) {
+                    clearCell(tIdx);
+                    swapCells(idx, tIdx);
+                  } else {
+                    gridMeta[idx] = (dir + 1) & 3;
+                  }
+                }
+              }
+              break;
+            }
+
+            case EL_FAN: {
+              // Continuous directional wind turbine block
+              const fvx = (gridLife[idx] || 15) * 0.15;
+              const fvy = (gridMeta[idx] || 0) * 0.15;
+              addAirImpulse(x, y, fvx, fvy, 0.45);
+              if (Math.random() < 0.08) {
+                const wx = x + Math.sign(fvx || 1) * 2;
+                const wy = y + Math.sign(fvy) * 2;
+                const wIdx = resolveCoords(wx, wy);
+                if (wIdx >= 0 && gridType[wIdx] === EL_EMPTY) {
+                  setCell(wIdx, EL_WIND, 14);
+                  gridVx[wIdx] = fvx * 1.3;
+                  gridVy[wIdx] = fvy * 1.3;
+                }
+              }
+              break;
+            }
+
+            case EL_CLONE: {
+              const clonedType = gridLife[idx];
+              if (clonedType === 0) {
+                for (let d = 0; d < 8; d++) {
+                  const nIdx = resolveCoords(x + NEIGHBOR_DIRS[d][0], y + NEIGHBOR_DIRS[d][1]);
+                  if (nIdx < 0) continue;
+                  const nt = gridType[nIdx];
+                  if (nt !== EL_EMPTY && nt !== EL_CLONE && nt !== EL_WALL && nt !== EL_FAN) {
+                    gridLife[idx] = nt;
+                    break;
+                  }
+                }
+              } else if (Math.random() < 0.38) {
+                const d = (Math.random() * 8) | 0;
+                const nIdx = resolveCoords(x + NEIGHBOR_DIRS[d][0], y + NEIGHBOR_DIRS[d][1]);
+                if (nIdx >= 0 && gridType[nIdx] === EL_EMPTY) {
+                  setCell(nIdx, clonedType);
+                  if (clonedType === EL_THUNDER) playSynthSfx('thunder');
+                }
+              }
+              break;
+            }
+
+            case EL_VIRUS: {
+              if (Math.random() < 0.15) {
+                const d = (Math.random() * 8) | 0;
+                const nIdx = resolveCoords(x + NEIGHBOR_DIRS[d][0], y + NEIGHBOR_DIRS[d][1]);
+                if (nIdx >= 0) {
+                  const nt = gridType[nIdx];
+                  if (
+                    nt !== EL_EMPTY &&
+                    nt !== EL_WALL &&
+                    nt !== EL_CLONE &&
+                    nt !== EL_VIRUS &&
+                    nt !== EL_FIRE &&
+                    nt !== EL_MAGMA &&
+                    nt !== EL_ACID &&
+                    nt !== EL_SOAPY &&
+                    nt !== EL_BUBBLE &&
+                    nt !== EL_GLASS
+                  ) {
+                    setCell(nIdx, EL_VIRUS);
+                  }
+                }
+              }
+              break;
+            }
+
+            case EL_WIND: {
+              gridLife[idx]--;
+              if (gridLife[idx] <= 0) {
+                clearCell(idx);
+                continue;
+              }
+              if (Math.abs(gridVx[idx]) < 0.1 && Math.abs(gridVy[idx]) < 0.1) {
+                gridVx[idx] = (Math.random() - 0.3) * 2.8;
+                gridVy[idx] = (Math.random() - 0.5) * 1.5;
+              }
+              const wvx = gridVx[idx];
+              const wvy = gridVy[idx];
+              addAirImpulse(x, y, wvx * 0.4, wvy * 0.4, 0.2);
+
+              const nextIdx = resolveCoords(
+                x + (wvx > 0 ? 1 : (wvx < 0 ? -1 : 0)),
+                y + (wvy > 0 ? 1 : (wvy < 0 ? -1 : 0))
+              );
+              if (nextIdx >= 0 && gridType[nextIdx] === EL_EMPTY) {
+                swapCells(idx, nextIdx);
+              }
+              break;
+            }
+
+            case EL_ICE: {
+              if (Math.random() < 0.005) {
+                const d = (Math.random() * 8) | 0;
+                const nIdx = resolveCoords(x + NEIGHBOR_DIRS[d][0], y + NEIGHBOR_DIRS[d][1]);
+                if (nIdx >= 0 && gridType[nIdx] === EL_WATER) {
+                  setCell(nIdx, EL_ICE);
+                }
+              }
+              break;
+            }
+
+            default:
+              break;
+          }
+        }
+      }
+
+      // --- C. Update Articulated Physics Entities (Fighters & Wheels) ---
+      stepEntities();
+    }
+
+    // --- 12. Physics Entities Engine (Fighters & Wheels) ---
+    function isCellSolidForEntity(x, y) {
+      const idx = resolveCoords(x | 0, y | 0);
+      if (idx === -1) return true; // Closed wall border
+      if (idx < 0) return false;
+      const t = gridType[idx];
+      if (t === EL_EMPTY) return false;
+      const st = ELEMENTS[t].state;
+      return st === STATE_SOLID || st === STATE_POWDER;
+    }
+
+    function stepEntities() {
+      const moveLeft  = keysHeld['ArrowLeft']  || keysHeld['KeyA'];
+      const moveRight = keysHeld['ArrowRight'] || keysHeld['KeyD'];
+      const moveJump  = keysHeld['ArrowUp']    || keysHeld['KeyW'];
+      const shootKey  = keysHeld['KeyE'];
+
+      for (let i = entities.length - 1; i >= 0; i--) {
+        const ent = entities[i];
+
+        // Couple entity to aerodynamic air grid
+        const ax = Math.max(0, Math.min(AIR_W - 1, (ent.x | 0) >> 2));
+        const ay = Math.max(0, Math.min(AIR_H - 1, (ent.y | 0) >> 2));
+        const aIdx = ay * AIR_W + ax;
+        ent.vx += airVx[aIdx] * 0.08;
+        ent.vy += airVy[aIdx] * 0.08;
+
+        // Gravity
+        ent.vy += gravityDir * 0.22;
+        ent.vx *= 0.92;
+        ent.vy *= 0.96;
+
+        // Check hazardous pixel contact (Fire, Magma, Acid, Virus)
+        const cIdx = resolveCoords(ent.x | 0, ent.y | 0);
+        if (cIdx === -2) {
+          entities.splice(i, 1);
+          continue;
+        }
+        if (cIdx >= 0) {
+          const ct = gridType[cIdx];
+          if (ct === EL_ACID || ct === EL_MAGMA) {
+            ent.hp -= 4;
+          } else if (ct === EL_FIRE || ct === EL_LASER || ct === EL_THUNDER) {
+            ent.hp -= 2;
+          } else if (ELEMENTS[ct] && ELEMENTS[ct].state === STATE_LIQUID) {
+            // Buoyancy in liquids!
+            ent.vy -= 0.32 * gravityDir;
+            ent.vx *= 0.85;
+          }
+        }
+        if (ent.hp <= 0) {
+          triggerExplosion(ent.x | 0, ent.y | 0, 6, 2.5);
+          entities.splice(i, 1);
+          continue;
+        }
+
+        if (ent.kind === 'fighter') {
+          // Player keyboard override or autonomous AI wandering
+          if (moveLeft) {
+            ent.vx -= 0.45;
+            ent.dir = -1;
+          } else if (moveRight) {
+            ent.vx += 0.45;
+            ent.dir = 1;
+          } else if (ent.onGround) {
+            // Autonomous stickman stroll
+            ent.vx += ent.dir * 0.18;
+            if (Math.random() < 0.02) ent.dir *= -1;
+          }
+
+          if (moveJump && ent.onGround) {
+            ent.vy = -3.4 * (gravityDir || 1);
+            ent.onGround = false;
+          }
+
+          // Shoot selected primary element when pressing E!
+          if (shootKey && tickCount % 3 === 0) {
+            const shootElem = (primaryElement === EL_EMPTY || primaryElement === EL_FIGHTER || primaryElement === EL_WHEEL)
+              ? EL_FIRE
+              : primaryElement;
+            const sx = (ent.x + ent.dir * 6) | 0;
+            const sy = (ent.y - 4) | 0;
+            const sIdx = resolveCoords(sx, sy);
+            if (sIdx >= 0 && gridType[sIdx] === EL_EMPTY) {
+              setCell(sIdx, shootElem, undefined, ent.dir > 0 ? 0 : 4);
+              gridVx[sIdx] = ent.dir * 3.8;
+              gridVy[sIdx] = -0.8;
+            }
+          }
+
+          ent.walkPhase += Math.abs(ent.vx) * 0.35;
+        } else if (ent.kind === 'wheel') {
+          ent.angle += ent.vx * 0.22;
+        }
+
+        // Horizontal movement & slope climbing
+        const nextX = ent.x + ent.vx;
+        if (!isCellSolidForEntity(nextX, ent.y)) {
+          ent.x = nextX;
+        } else if (!isCellSolidForEntity(nextX, ent.y - 2)) {
+          // Step up 1-2px slope
+          ent.x = nextX;
+          ent.y -= 2;
+        } else {
+          // Kick loose powders when walking into them!
+          const kickIdx = resolveCoords(nextX | 0, ent.y | 0);
+          if (kickIdx >= 0 && ELEMENTS[gridType[kickIdx]].state === STATE_POWDER) {
+            gridVx[kickIdx] += ent.dir * 2.2;
+            gridVy[kickIdx] -= 1.4;
+          }
+          ent.vx *= -0.5;
+          if (!moveLeft && !moveRight) ent.dir *= -1;
+        }
+
+        // Vertical movement & ground collision
+        const nextY = ent.y + ent.vy;
+        if (!isCellSolidForEntity(ent.x, nextY + 4 * (gravityDir || 1))) {
+          ent.y = nextY;
+          ent.onGround = false;
+        } else {
+          if (ent.kind === 'wheel' && Math.abs(ent.vy) > 1.2) {
+            ent.vy *= -0.55; // Wheel bounces
+          } else {
+            ent.vy = 0;
+          }
+          ent.onGround = true;
+          // Occasional autonomous hop over obstacles
+          if (ent.kind === 'fighter' && !moveLeft && !moveRight && Math.random() < 0.025) {
+            ent.vy = -2.6 * (gravityDir || 1);
+            ent.onGround = false;
+          }
+        }
+
+        // Wrap or clamp entity coordinates
+        if (edgeMode === 'loop') {
+          ent.x = ((ent.x % WIDTH) + WIDTH) % WIDTH;
+          ent.y = ((ent.y % HEIGHT) + HEIGHT) % HEIGHT;
+        } else if (edgeMode === 'box') {
+          ent.x = Math.max(4, Math.min(WIDTH - 5, ent.x));
+          ent.y = Math.max(8, Math.min(HEIGHT - 6, ent.y));
+        }
+      }
+    }
+
+    // --- 13. High-Speed 32-Bit Pixel Buffer Renderer ---
+    const COLOR_BLACK  = packRGB(0, 0, 0);
+    const COLOR_BORDER = packRGB(45, 58, 78);
+
+    function renderGrid() {
+      let count = 0;
+
+      for (let y = 0; y < HEIGHT; y++) {
+        const rowOff = y * WIDTH;
+        const airRow = (y >> 2) * AIR_W;
+
+        for (let x = 0; x < WIDTH; x++) {
+          const i = rowOff + x;
+          const type = gridType[i];
+
+          if (type === EL_EMPTY) {
+            if (bgMode === 'air') {
+              // Visualize real-time aerodynamic pressure & wind velocity!
+              const aIdx = airRow + (x >> 2);
+              const p = airP[aIdx];
+              const vMag = Math.abs(airVx[aIdx]) + Math.abs(airVy[aIdx]);
+              if (p > 0.05 || p < -0.05 || vMag > 0.08) {
+                const pr = p > 0 ? Math.min(130, (p * 18) | 0) : 0;
+                const pb = p < 0 ? Math.min(140, (-p * 18) | 0) : Math.min(160, (vMag * 22) | 0);
+                const pg = Math.min(110, (vMag * 15) | 0);
+                buf32[i] = packRGB(pr, pg, pb);
+              } else {
+                buf32[i] = COLOR_BLACK;
+              }
+            } else if (bgMode === 'grid') {
+              if ((x & 15) === 0 || (y & 15) === 0) {
+                buf32[i] = packRGB(14, 20, 32);
+              } else {
+                buf32[i] = COLOR_BLACK;
+              }
+            } else if (bgMode === 'glow') {
+              // Fade previous frame pixel for motion blur trail
+              const prev = buf32[i];
+              const r = ((prev & 0xff) * 0.78) | 0;
+              const g = (((prev >> 8) & 0xff) * 0.78) | 0;
+              const b = (((prev >> 16) & 0xff) * 0.78) | 0;
+              buf32[i] = packRGB(r, g, b);
+            } else {
+              buf32[i] = COLOR_BLACK;
+            }
+            continue;
+          }
+
+          count++;
+          const shade = gridShade[i];
+
+          if (type === EL_FIRE) {
+            const lifeIdx = Math.max(0, Math.min(64, gridLife[i]));
+            buf32[i] = FIRE_PALETTE[lifeIdx];
+          } else if (type === EL_MAGMA) {
+            const pulse = ((Math.sin(tickCount * 0.14 + i * 0.07) * 30) | 0) + shade;
+            buf32[i] = packRGB(255, 68 + pulse, 12);
+          } else if (type === EL_THUNDER) {
+            buf32[i] = Math.random() < 0.5 ? packRGB(255, 255, 220) : packRGB(253, 224, 71);
+          } else if (type === EL_LASER) {
+            buf32[i] = packRGB(255, 45 + ((Math.random() * 80) | 0), 120);
+          } else if (type === EL_PETAL) {
+            const c = FIREWORK_COLORS[gridLife[i] % FIREWORK_COLORS.length] || FIREWORK_COLORS[0];
+            buf32[i] = packRGB(c[0] + shade, c[1] + shade, c[2] + shade);
+          } else if (type === EL_PLANT) {
+            if (gridLife[i] === 1) {
+              buf32[i] = packRGB(118 + shade, 76 + shade, 38 + shade);
+            } else {
+              buf32[i] = packRGB(44 + shade, 140 + shade, 54 + shade);
+            }
+          } else if (type === EL_VIRUS) {
+            const vPulse = ((Math.cos(tickCount * 0.15 + i) * 18) | 0) + shade;
+            buf32[i] = packRGB(155 + vPulse, 45, 255);
+          } else if (type === EL_WIND) {
+            const alphaFade = Math.min(225, gridLife[i] * 9);
+            buf32[i] = packRGB(alphaFade, alphaFade, Math.min(255, alphaFade + 20));
+          } else {
+            const base = ELEMENTS[type].rgb;
+            buf32[i] = packRGB(base[0] + shade, base[1] + shade, base[2] + shade);
+          }
+        }
+      }
+
+      // Draw closed box perimeter border
+      if (edgeMode === 'box') {
+        for (let x = 0; x < WIDTH; x++) {
+          buf32[x] = COLOR_BORDER;
+          buf32[(HEIGHT - 1) * WIDTH + x] = COLOR_BORDER;
+        }
+        for (let y = 0; y < HEIGHT; y++) {
+          buf32[y * WIDTH] = COLOR_BORDER;
+          buf32[y * WIDTH + (WIDTH - 1)] = COLOR_BORDER;
+        }
+      }
+
+      ctx.putImageData(imgData, 0, 0);
+
+      // Render Articulated Physics Entities (Fighters & Wheels) on top of pixel buffer
+      ctx.save();
+      for (let i = 0; i < entities.length; i++) {
+        const ent = entities[i];
+        if (ent.kind === 'fighter') {
+          const swing = Math.sin(ent.walkPhase) * 3;
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.2;
+          // Head
+          ctx.beginPath();
+          ctx.arc(ent.x, ent.y - 6, 2.2, 0, Math.PI * 2);
+          ctx.stroke();
+          // Torso & Limbs
+          ctx.beginPath();
+          ctx.moveTo(ent.x, ent.y - 4);
+          ctx.lineTo(ent.x, ent.y);
+          // Legs
+          ctx.moveTo(ent.x, ent.y);
+          ctx.lineTo(ent.x - swing, ent.y + 4);
+          ctx.moveTo(ent.x, ent.y);
+          ctx.lineTo(ent.x + swing, ent.y + 4);
+          // Arms
+          ctx.moveTo(ent.x, ent.y - 3);
+          ctx.lineTo(ent.x + ent.dir * 3.5, ent.y - 1 + swing * 0.4);
+          ctx.stroke();
+        } else if (ent.kind === 'wheel') {
+          ctx.strokeStyle = '#f59e0b';
+          ctx.lineWidth = 1.4;
+          ctx.beginPath();
+          ctx.arc(ent.x, ent.y, 4.5, 0, Math.PI * 2);
+          ctx.stroke();
+          // Rotating spokes
+          ctx.beginPath();
+          ctx.moveTo(ent.x - Math.cos(ent.angle) * 4, ent.y - Math.sin(ent.angle) * 4);
+          ctx.lineTo(ent.x + Math.cos(ent.angle) * 4, ent.y + Math.sin(ent.angle) * 4);
+          ctx.moveTo(ent.x - Math.sin(ent.angle) * 4, ent.y + Math.cos(ent.angle) * 4);
+          ctx.lineTo(ent.x + Math.sin(ent.angle) * 4, ent.y - Math.cos(ent.angle) * 4);
+          ctx.stroke();
+        }
+      }
+
+      // Draw Line Tool preview or Brush Cursor Ring
+      if (mouseGridX >= 0 && mouseGridY >= 0) {
+        const activeElem = activeMouseButton === 2 ? secondaryElement : primaryElement;
+        ctx.strokeStyle = activeElem === EL_EMPTY ? '#f43f5e' : ELEMENTS[activeElem].color;
+        ctx.lineWidth = 1;
+
+        if (isPointerDown && (brushShape === 'line' || keysHeld['ShiftLeft'] || keysHeld['ShiftRight']) && lineStartX >= 0) {
+          ctx.beginPath();
+          ctx.moveTo(lineStartX + 0.5, lineStartY + 0.5);
+          ctx.lineTo(mouseGridX + 0.5, mouseGridY + 0.5);
+          ctx.stroke();
+        }
+
+        if (brushShape === 'square') {
+          ctx.strokeRect(
+            mouseGridX - brushRadius + 0.5,
+            mouseGridY - brushRadius + 0.5,
+            brushRadius * 2,
+            brushRadius * 2
+          );
+        } else {
+          ctx.beginPath();
+          ctx.arc(mouseGridX + 0.5, mouseGridY + 0.5, brushRadius, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+      ctx.restore();
+
+      activeParticleCount = count;
+    }
+
+    // --- 14. Brush Painting & Directional Contraption Spawning ---
+    function angleToCompass8(dx, dy) {
+      if (Math.abs(dx) < 0.01 && Math.abs(dy) < 0.01) return 0;
+      const angle = Math.atan2(dy, dx); // -PI..PI
+      const octant = Math.round((angle / (Math.PI / 4))) & 7;
+      return octant;
+    }
+
+    function paintAt(cx, cy, elemType, vxImpulse, vyImpulse) {
+      // Handle Entity Spawners (Fighter & Wheel) or Eraser removing entities
+      if (elemType === EL_EMPTY) {
+        entities = entities.filter(ent => Math.hypot(ent.x - cx, ent.y - cy) > brushRadius + 5);
+      } else if (elemType === EL_FIGHTER || elemType === EL_WHEEL) {
+        if (entities.length < MAX_ENTITIES) {
+          // Avoid stacking multiple entities on the exact same pixel in one frame
+          const tooClose = entities.some(e => Math.hypot(e.x - cx, e.y - cy) < 6);
+          if (!tooClose) {
+            entities.push({
+              kind: elemType === EL_FIGHTER ? 'fighter' : 'wheel',
+              x: cx,
+              y: cy,
+              vx: (vxImpulse || 0) * 0.4,
+              vy: 0,
+              dir: Math.random() < 0.5 ? 1 : -1,
+              walkPhase: 0,
+              angle: 0,
+              hp: 100,
+              onGround: false
+            });
+            playSynthSfx('draw');
+          }
+        }
+        return;
+      }
+
+      const r = elemType === EL_THUNDER || elemType === EL_ANT ? Math.min(2, brushRadius) : brushRadius;
+      const r2 = r * r;
+      const compassDir = angleToCompass8(vxImpulse, vyImpulse);
+
+      if (elemType === EL_THUNDER) playSynthSfx('thunder');
+      else if (elemType === EL_LASER) playSynthSfx('laser');
+      else playSynthSfx('draw');
+
+      for (let dy = -r; dy <= r; dy++) {
+        const y = cy + dy;
+        if (y < 0 || y >= HEIGHT) continue;
+        if (edgeMode === 'box' && (y <= 0 || y >= HEIGHT - 1)) continue;
+
+        for (let dx = -r; dx <= r; dx++) {
+          const x = cx + dx;
+          if (x < 0 || x >= WIDTH) continue;
+          if (edgeMode === 'box' && (x <= 0 || x >= WIDTH - 1)) continue;
+
+          if (brushShape === 'circle' && dx * dx + dy * dy > r2) continue;
+          if (brushShape === 'spray' && (dx * dx + dy * dy > r2 || Math.random() > 0.2)) continue;
+
+          const idx = y * WIDTH + x;
+          if (elemType === EL_EMPTY) {
+            clearCell(idx);
+          } else if (elemType === EL_WIND) {
+            addAirImpulse(x, y, vxImpulse || 2.2, vyImpulse || -0.4, 0.45);
+            const cur = gridType[idx];
+            if (cur === EL_EMPTY && Math.random() < 0.3) {
+              setCell(idx, EL_WIND);
+              gridVx[idx] = vxImpulse || (Math.random() - 0.5) * 3;
+              gridVy[idx] = vyImpulse || (Math.random() - 0.5) * 2;
+            } else if (cur !== EL_EMPTY && ELEMENTS[cur].state !== STATE_SOLID) {
+              gridVx[idx] = Math.max(-7, Math.min(7, gridVx[idx] + (vxImpulse || 1.8)));
+              gridVy[idx] = Math.max(-7, Math.min(7, gridVy[idx] + (vyImpulse || -0.5)));
+            }
+          } else if (elemType === EL_FAN) {
+            setCell(idx, EL_FAN, Math.round((vxImpulse || 2.0) * 8), Math.round((vyImpulse || 0) * 8));
+          } else if (elemType === EL_LASER) {
+            if (gridType[idx] === EL_EMPTY) {
+              setCell(idx, EL_LASER, 45, compassDir);
+            }
+          } else {
+            const state = ELEMENTS[elemType].state;
+            if ((state === STATE_POWDER || state === STATE_ENERGY || state === STATE_GAS) && r > 1 && Math.random() < 0.26) {
+              continue;
+            }
+            const existing = gridType[idx];
+            if ((existing === EL_WALL || existing === EL_CLONE) && elemType !== EL_WALL && elemType !== EL_CLONE) {
+              continue;
+            }
+            if (existing === EL_EMPTY || elemType === EL_WALL || elemType === EL_FIRE || elemType === EL_ACID || elemType === EL_THUNDER) {
+              setCell(idx, elemType);
+            }
+          }
+        }
+      }
+    }
+
+    function paintLine(x0, y0, x1, y1, elemType, vxImpulse, vyImpulse) {
+      let dx = Math.abs(x1 - x0);
+      let dy = -Math.abs(y1 - y0);
+      let sx = x0 < x1 ? 1 : -1;
+      let sy = y0 < y1 ? 1 : -1;
+      let err = dx + dy;
+
+      while (true) {
+        paintAt(x0, y0, elemType, vxImpulse, vyImpulse);
+        if (x0 === x1 && y0 === y1) break;
+        const e2 = 2 * err;
+        if (e2 >= dy) { err += dy; x0 += sx; }
+        if (e2 <= dx) { err += dx; y0 += sy; }
+      }
+    }
+
+    // --- 15. Clear & Optional Contraption Presets ---
+    function clearGrid() {
+      gridType.fill(EL_EMPTY);
+      gridLife.fill(0);
+      gridMeta.fill(0);
+      gridShade.fill(0);
+      gridVx.fill(0);
+      gridVy.fill(0);
+      airVx.fill(0);
+      airVy.fill(0);
+      airP.fill(0);
+      entities = [];
+    }
+
+    function drawRectElement(x1, y1, x2, y2, type, customLife, customMeta) {
+      const minX = Math.max(1, Math.min(x1, x2));
+      const maxX = Math.min(WIDTH - 2, Math.max(x1, x2));
+      const minY = Math.max(1, Math.min(y1, y2));
+      const maxY = Math.min(HEIGHT - 2, Math.max(y1, y2));
+      for (let y = minY; y <= maxY; y++) {
+        for (let x = minX; x <= maxX; x++) {
+          setCell(y * WIDTH + x, type, customLife, customMeta);
+        }
+      }
+    }
+
+    function loadPresetScene(presetName) {
+      clearGrid();
+      if (presetName === 'volcano') {
+        for (let y = 115; y < HEIGHT - 1; y++) {
+          const spread = ((y - 115) * 0.75) | 0;
+          drawRectElement(95 - spread - 12, y, 95 - spread, y, EL_WALL);
+          drawRectElement(135 + spread, y, 135 + spread + 12, y, EL_WALL);
+          drawRectElement(96 - spread, y, 134 + spread, y, EL_MAGMA);
+        }
+        drawRectElement(108, HEIGHT - 12, 122, HEIGHT - 8, EL_CLONE, EL_MAGMA);
+        drawRectElement(225, 170, 380, HEIGHT - 2, EL_WATER);
+        drawRectElement(200, 195, 240, HEIGHT - 2, EL_POWDER);
+        drawRectElement(260, 148, 345, 150, EL_SEED);
+      } else if (presetName === 'bunker') {
+        drawRectElement(75, 195, 325, 202, EL_WALL);
+        drawRectElement(95, 170, 305, 194, EL_C4);
+        drawRectElement(115, 145, 285, 169, EL_NITRO);
+        drawRectElement(120, 120, 280, 144, EL_GUNPOWDER);
+        drawRectElement(90, 112, 310, 119, EL_GLASS);
+        drawRectElement(196, 55, 204, 111, EL_FUSE);
+        drawRectElement(195, 45, 205, 54, EL_FIRE, 60);
+      } else if (presetName === 'circuit') {
+        // Metal wire circuit conducting Thunder to C4 & Glass laser chamber
+        drawRectElement(40, 80, 240, 85, EL_METAL);
+        drawRectElement(235, 85, 240, 170, EL_METAL);
+        drawRectElement(220, 170, 260, 195, EL_C4);
+        // Saltwater bridge & Clone Thunder generator
+        drawRectElement(45, 55, 65, 62, EL_CLONE, EL_THUNDER);
+        // Laser & Glass prism chamber on right
+        drawRectElement(300, 70, 306, 190, EL_GLASS);
+        drawRectElement(335, 70, 341, 190, EL_GLASS);
+        drawRectElement(355, 110, 380, 150, EL_GUNPOWDER);
+      } else if (presetName === 'arena') {
+        // Platforms, Fan wind tunnel, Fighters & Wheels
+        drawRectElement(20, 210, 380, 218, EL_WALL);
+        drawRectElement(60, 155, 175, 162, EL_METAL);
+        drawRectElement(225, 155, 340, 162, EL_METAL);
+        drawRectElement(140, 100, 260, 107, EL_PLANT);
+        // Upward wind fan in the center gap
+        drawRectElement(188, 200, 212, 208, EL_FAN, 0, -24);
+        for (let fx = 80; fx <= 320; fx += 45) {
+          entities.push({ kind: 'fighter', x: fx, y: 135, vx: 0, vy: 0, dir: 1, walkPhase: 0, angle: 0, hp: 100, onGround: false });
+        }
+        entities.push({ kind: 'wheel', x: 160, y: 80, vx: 1.5, vy: 0, dir: 1, walkPhase: 0, angle: 0, hp: 100, onGround: false });
+        entities.push({ kind: 'wheel', x: 240, y: 80, vx: -1.5, vy: 0, dir: -1, walkPhase: 0, angle: 0, hp: 100, onGround: false });
+      } else if (presetName === 'ecosystem') {
+        drawRectElement(30, 215, 370, 222, EL_WALL);
+        drawRectElement(40, 175, 360, 214, EL_POWDER);
+        drawRectElement(70, 20, 330, 34, EL_CLOUD);
+        for (let x = 75; x <= 325; x += 28) {
+          drawRectElement(x, 165, x + 4, 169, EL_SEED);
+        }
+        drawRectElement(180, 185, 210, 190, EL_ANT);
+      } else if (presetName === 'factory') {
+        drawRectElement(45, 45, 75, 52, EL_CLONE, EL_WATER);
+        drawRectElement(145, 45, 175, 52, EL_CLONE, EL_POWDER);
+        drawRectElement(255, 45, 285, 52, EL_CLONE, EL_ACID);
+        drawRectElement(325, 45, 355, 52, EL_CLONE, EL_MERCURY);
+        drawRectElement(35, 115, 120, 122, EL_WALL);
+        drawRectElement(135, 150, 230, 157, EL_PLANT);
+        drawRectElement(245, 125, 365, 134, EL_GLASS);
+      } else if (presetName === 'blizzard') {
+        drawRectElement(30, 165, 175, 185, EL_ICE);
+        drawRectElement(225, 165, 370, 185, EL_ICE);
+        drawRectElement(50, 20, 350, 50, EL_SNOW);
+        drawRectElement(180, 210, 220, 222, EL_FIREWORK);
+        drawRectElement(195, 202, 205, 209, EL_FIRE, 55);
+      }
+    }
+
+    // --- 16. UI Initialization & Event Binding ---
+    function updateSelectionUI() {
+      const pElem = ELEMENTS[primaryElement];
+      const sElem = ELEMENTS[secondaryElement];
+
+      document.getElementById('primaryElemBadge').style.backgroundColor = pElem.color;
+      document.getElementById('primaryElemName').textContent = pElem.name;
+      document.getElementById('primaryElemState').textContent = `[${pElem.stateLabel}]`;
+      document.getElementById('elemDescText').textContent = pElem.desc;
+
+      document.getElementById('secondaryElemBadge').style.backgroundColor = sElem.color;
+      document.getElementById('secondaryElemName').textContent = sElem.name;
+
+      const buttons = document.querySelectorAll('.elem-btn');
+      buttons.forEach(btn => {
+        const id = Number(btn.dataset.elemId);
+        btn.classList.remove('active-primary', 'active-secondary');
+        if (id === primaryElement) btn.classList.add('active-primary');
+        else if (id === secondaryElement) btn.classList.add('active-secondary');
+      });
+    }
+
+    function buildPaletteUI() {
+      const grid = document.getElementById('paletteGrid');
+      grid.innerHTML = '';
+
+      ELEMENTS.forEach(el => {
+        if (activeCategory !== 'all' && el.cat !== activeCategory) return;
+
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.dataset.elemId = el.id;
+        btn.className = 'elem-btn flex items-center gap-2 px-2 py-1.5 rounded-lg bg-slate-900/95 border border-slate-800 text-left';
+        btn.title = `${el.name} — ${el.desc}`;
+
+        const swatch = document.createElement('span');
+        swatch.className = 'w-3 h-3 rounded-sm shrink-0 border border-white/25 shadow-sm';
+        swatch.style.backgroundColor = el.color;
+
+        const textWrap = document.createElement('div');
+        textWrap.className = 'min-w-0 flex-1';
+
+        const title = document.createElement('div');
+        title.className = 'text-[11px] font-semibold text-slate-100 truncate leading-tight';
+        title.textContent = el.short;
+
+        const sub = document.createElement('div');
+        sub.className = 'text-[9px] text-slate-400 truncate leading-tight';
+        sub.textContent = el.stateLabel;
+
+        textWrap.appendChild(title);
+        textWrap.appendChild(sub);
+        btn.appendChild(swatch);
+        btn.appendChild(textWrap);
+
+        btn.addEventListener('click', () => {
+          initAudio();
+          primaryElement = el.id;
+          updateSelectionUI();
+        });
+
+        btn.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          initAudio();
+          secondaryElement = el.id;
+          updateSelectionUI();
+        });
+
+        grid.appendChild(btn);
+      });
+
+      updateSelectionUI();
+    }
+
+    // Category filter tabs
+    document.querySelectorAll('.cat-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        activeCategory = tab.dataset.cat;
+        document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active-cat'));
+        tab.classList.add('active-cat');
+        buildPaletteUI();
+      });
+    });
+
+    function getCanvasGridCoords(clientX, clientY) {
+      const rect = canvas.getBoundingClientRect();
+      const normX = (clientX - rect.left) / rect.width;
+      const normY = (clientY - rect.top) / rect.height;
+      const gx = Math.floor(normX * WIDTH);
+      const gy = Math.floor(normY * HEIGHT);
+      return {
+        x: Math.max(0, Math.min(WIDTH - 1, gx)),
+        y: Math.max(0, Math.min(HEIGHT - 1, gy))
+      };
+    }
+
+    // Pointer Events on Canvas
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+    canvas.addEventListener('pointerdown', (e) => {
+      initAudio();
+      canvas.setPointerCapture(e.pointerId);
+      isPointerDown = true;
+      activeMouseButton = e.button === 2 ? 2 : 0;
+
+      const pt = getCanvasGridCoords(e.clientX, e.clientY);
+      mouseGridX = pt.x;
+      mouseGridY = pt.y;
+      prevMouseGridX = pt.x;
+      prevMouseGridY = pt.y;
+      lineStartX = pt.x;
+      lineStartY = pt.y;
+      dragVelX = 0;
+      dragVelY = 0;
+
+      if (brushShape !== 'line' && !keysHeld['ShiftLeft'] && !keysHeld['ShiftRight']) {
+        const elem = activeMouseButton === 2 ? secondaryElement : primaryElement;
+        paintAt(mouseGridX, mouseGridY, elem, 2.2, 0);
+      }
+    });
+
+    canvas.addEventListener('pointermove', (e) => {
+      const pt = getCanvasGridCoords(e.clientX, e.clientY);
+      dragVelX = Math.max(-6, Math.min(6, (pt.x - mouseGridX) * 0.75));
+      dragVelY = Math.max(-6, Math.min(6, (pt.y - mouseGridY) * 0.75));
+      prevMouseGridX = mouseGridX >= 0 ? mouseGridX : pt.x;
+      prevMouseGridY = mouseGridY >= 0 ? mouseGridY : pt.y;
+      mouseGridX = pt.x;
+      mouseGridY = pt.y;
+
+      document.getElementById('coordDisplay').textContent = `${pt.x}, ${pt.y}`;
+
+      if (isPointerDown && brushShape !== 'line' && !keysHeld['ShiftLeft'] && !keysHeld['ShiftRight']) {
+        const elem = activeMouseButton === 2 ? secondaryElement : primaryElement;
+        paintLine(prevMouseGridX, prevMouseGridY, mouseGridX, mouseGridY, elem, dragVelX, dragVelY);
+      }
+    });
+
+    function endPointerDraw() {
+      if (isPointerDown && (brushShape === 'line' || keysHeld['ShiftLeft'] || keysHeld['ShiftRight']) && lineStartX >= 0 && mouseGridX >= 0) {
+        const elem = activeMouseButton === 2 ? secondaryElement : primaryElement;
+        const lvx = Math.max(-5, Math.min(5, (mouseGridX - lineStartX) * 0.25));
+        const lvy = Math.max(-5, Math.min(5, (mouseGridY - lineStartY) * 0.25));
+        paintLine(lineStartX, lineStartY, mouseGridX, mouseGridY, elem, lvx, lvy);
+      }
+      isPointerDown = false;
+      lineStartX = -1;
+      lineStartY = -1;
+    }
+
+    canvas.addEventListener('pointerup', endPointerDraw);
+    canvas.addEventListener('pointercancel', endPointerDraw);
+    canvas.addEventListener('pointerleave', () => {
+      mouseGridX = -1;
+      mouseGridY = -1;
+      document.getElementById('coordDisplay').textContent = '---, ---';
+    });
+
+    // Mouse Wheel for Pen Size
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      setBrushSize(brushRadius + (e.deltaY < 0 ? 1 : -1));
+    }, { passive: false });
+
+    function setBrushSize(val) {
+      brushRadius = Math.max(1, Math.min(24, val | 0));
+      document.getElementById('brushSizeSlider').value = String(brushRadius);
+      document.getElementById('brushSizeVal').textContent = String(brushRadius);
+    }
+
+    function setBrushShape(shape) {
+      brushShape = shape;
+      const shapes = [
+        { id: 'shapeCircleBtn', key: 'circle' },
+        { id: 'shapeSquareBtn', key: 'square' },
+        { id: 'shapeSprayBtn',  key: 'spray' },
+        { id: 'shapeLineBtn',   key: 'line' }
+      ];
+      shapes.forEach(s => {
+        const btn = document.getElementById(s.id);
+        if (s.key === shape) {
+          btn.className = 'px-2 py-0.5 rounded text-[11px] font-medium bg-sky-500/25 text-sky-300 border border-sky-500/40';
+        } else {
+          btn.className = 'px-2 py-0.5 rounded text-[11px] font-medium text-slate-400 hover:text-slate-200 border border-transparent';
+        }
+      });
+    }
+
+    function setPlayState(playing) {
+      isRunning = playing;
+      const btn = document.getElementById('playPauseBtn');
+      const icon = document.getElementById('playPauseIcon');
+      const txt = document.getElementById('playPauseText');
+      const dot = document.getElementById('fpsDot');
+
+      if (isRunning) {
+        icon.textContent = '⏸';
+        txt.textContent = 'Pause';
+        btn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 transition flex items-center gap-1.5';
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+      } else {
+        icon.textContent = '▶';
+        txt.textContent = 'Play';
+        btn.className = 'px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/40 transition flex items-center gap-1.5';
+        dot.className = 'w-2 h-2 rounded-full bg-amber-400';
+      }
+    }
+
+    // Bind Top Bar Controls
+    document.getElementById('playPauseBtn').addEventListener('click', () => setPlayState(!isRunning));
+
+    document.getElementById('stepFrameBtn').addEventListener('click', () => {
+      setPlayState(false);
+      stepPhysics();
+      renderGrid();
+      document.getElementById('particleCounter').textContent = activeParticleCount.toLocaleString();
+      document.getElementById('entityCounter').textContent = String(entities.length);
+    });
+
+    document.getElementById('clearCanvasBtn').addEventListener('click', () => {
+      clearGrid();
+      renderGrid();
+      document.getElementById('particleCounter').textContent = '0';
+      document.getElementById('entityCounter').textContent = '0';
+      document.getElementById('presetSelect').value = '';
+    });
+
+    document.getElementById('edgeModeSelect').addEventListener('change', (e) => {
+      edgeMode = e.target.value;
+      document.getElementById('containWallsToggle').checked = (edgeMode === 'box');
+    });
+
+    document.getElementById('containWallsToggle').addEventListener('change', (e) => {
+      edgeMode = e.target.checked ? 'box' : 'void';
+      document.getElementById('edgeModeSelect').value = edgeMode;
+    });
+
+    document.getElementById('gravityModeSelect').addEventListener('change', (e) => {
+      gravityDir = Number(e.target.value);
+    });
+
+    document.getElementById('bgModeSelect').addEventListener('change', (e) => {
+      bgMode = e.target.value;
+    });
+
+    document.getElementById('presetSelect').addEventListener('change', (e) => {
+      if (e.target.value) {
+        loadPresetScene(e.target.value);
+      }
+    });
+
+    document.getElementById('brushDecBtn').addEventListener('click', () => setBrushSize(brushRadius - 1));
+    document.getElementById('brushIncBtn').addEventListener('click', () => setBrushSize(brushRadius + 1));
+    document.getElementById('brushSizeSlider').addEventListener('input', (e) => setBrushSize(Number(e.target.value)));
+
+    document.getElementById('shapeCircleBtn').addEventListener('click', () => setBrushShape('circle'));
+    document.getElementById('shapeSquareBtn').addEventListener('click', () => setBrushShape('square'));
+    document.getElementById('shapeSprayBtn').addEventListener('click', () => setBrushShape('spray'));
+    document.getElementById('shapeLineBtn').addEventListener('click', () => setBrushShape('line'));
+
+    document.getElementById('soundToggleBtn').addEventListener('click', () => {
+      initAudio();
+      soundEnabled = !soundEnabled;
+      document.getElementById('soundIcon').textContent = soundEnabled ? '🔊' : '🔇';
+      document.getElementById('soundLabel').textContent = soundEnabled ? 'SFX On' : 'SFX Muted';
+    });
+
+    // Help Modal Controls
+    const helpModal = document.getElementById('helpModal');
+    function openHelpModal() {
+      helpModal.classList.remove('hidden');
+      helpModal.classList.add('flex');
+    }
+    function closeHelpModal() {
+      helpModal.classList.add('hidden');
+      helpModal.classList.remove('flex');
+    }
+    document.getElementById('helpModalBtn').addEventListener('click', openHelpModal);
+    document.getElementById('closeHelpModalBtn').addEventListener('click', closeHelpModal);
+    document.getElementById('closeHelpBottomBtn').addEventListener('click', closeHelpModal);
+    helpModal.addEventListener('click', (e) => {
+      if (e.target === helpModal) closeHelpModal();
+    });
+
+    // Keyboard Shortcuts & Fighter Input Tracking
+    window.addEventListener('keydown', (e) => {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
+      keysHeld[e.code] = true;
+
+      if (e.code === 'Space') {
+        e.preventDefault();
+        setPlayState(!isRunning);
+      } else if (e.key === '[') {
+        setBrushSize(brushRadius - 1);
+      } else if (e.key === ']') {
+        setBrushSize(brushRadius + 1);
+      } else if (e.key === 'c' || e.key === 'C') {
+        clearGrid();
+      } else if ((e.key === 's' || e.key === 'S') && entities.length === 0) {
+        setPlayState(false);
+        stepPhysics();
+        renderGrid();
+      }
+    });
+
+    window.addEventListener('keyup', (e) => {
+      keysHeld[e.code] = false;
+    });
+
+    // --- 17. Main Animation Loop ---
+    let animFrameId = null;
+
+    function gameLoop(now) {
+      if (isPointerDown && brushShape !== 'line' && !keysHeld['ShiftLeft'] && !keysHeld['ShiftRight'] && mouseGridX >= 0 && mouseGridY >= 0) {
+        const elem = activeMouseButton === 2 ? secondaryElement : primaryElement;
+        if (elem !== EL_FIGHTER && elem !== EL_WHEEL) {
+          paintAt(mouseGridX, mouseGridY, elem, dragVelX || 1.5, dragVelY || -0.3);
+        }
+      }
+
+      if (isRunning) {
+        stepPhysics();
+      }
+
+      renderGrid();
+
+      framesThisSecond++;
+      if (now - lastFpsTime >= 450) {
+        currentFps = Math.min(60, Math.round((framesThisSecond * 1000) / (now - lastFpsTime)));
+        document.getElementById('fpsCounter').textContent = String(currentFps);
+        document.getElementById('particleCounter').textContent = activeParticleCount.toLocaleString();
+        document.getElementById('entityCounter').textContent = String(entities.length);
+        framesThisSecond = 0;
+        lastFpsTime = now;
+      }
+
+      animFrameId = requestAnimationFrame(gameLoop);
+    }
+
+    // Initialize on load with an empty canvas
+    window.onload = function () {
+      buildPaletteUI();
+      clearGrid();
+      renderGrid();
+      if (animFrameId) cancelAnimationFrame(animFrameId);
+      animFrameId = requestAnimationFrame(gameLoop);
+    };
+  </script>
+</body>
+</html>
